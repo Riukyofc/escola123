@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Portal Escolar — U.E. Professora Edith Nair</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0f2347">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+
+  <!-- Firebase CDN (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ════════ TOAST ════════ -->
+<div id="toast-container"></div>
+
+<!-- ════════════════════════════════════════
+     TELA DE LOGIN
+════════════════════════════════════════ -->
+<div id="login-screen">
+  <canvas id="loginParticles" class="login-particles-canvas"></canvas>
+  <div class="login-grid-bg"></div>
+  <div class="login-glow"></div>
+  <div class="login-glow-2"></div>
+
+  <!-- Loading overlay (mostrado durante seed/carregamento) -->
+  <div id="login-loading" style="display:none; position:absolute; inset:0; z-index:10; background:rgba(6,14,28,0.85); align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+    <i class="fa-solid fa-spinner spin" style="font-size:2.5rem; color:var(--accent-light);"></i>
+    <div style="color:rgba(255,255,255,0.7); font-weight:700; font-size:0.9rem;" id="login-loading-msg">Conectando ao servidor...</div>
+  </div>
+
+  <div class="login-card" id="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon"><i class="fa-solid fa-school"></i></div>
+      <div class="login-school-name">U.E. Professora Edith Nair<br>Furtado da Silva</div>
+      <div class="login-school-sub typing-effect" id="login-typing">Portal Escolar · Viana — MA</div>
+      <div class="login-semed"><i class="fa-solid fa-building-columns"></i> Secretaria Municipal de Educação</div>
+    </div>
+
+    <!-- Tabs: Entrar / Criar Conta -->
+    <div style="display:flex; gap:4px; margin-bottom:20px; background:rgba(255,255,255,0.06); border-radius:var(--r-md); padding:4px;">
+      <button type="button" class="role-btn active" id="tab-login" onclick="switchLoginTab('login')" style="flex:1; border-radius:var(--r-sm);">
+        <i class="fa-solid fa-right-to-bracket"></i>Entrar
+      </button>
+      <button type="button" class="role-btn" id="tab-register" onclick="switchLoginTab('register')" style="flex:1; border-radius:var(--r-sm);">
+        <i class="fa-solid fa-user-plus"></i>Criar Conta
+      </button>
+    </div>
+
+    <!-- ══ FORM: LOGIN ══ -->
+    <form id="login-form" onsubmit="doLogin(event)" style="display:block">
+      <div class="login-field">
+        <label class="login-label">Email</label>
+        <input type="email" class="login-input" id="input-email" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="login-field">
+        <label class="login-label">Senha</label>
+        <div class="login-input-wrap">
+          <input type="password" class="login-input" id="input-senha" placeholder="Digite sua senha" autocomplete="current-password">
+          <button type="button" class="login-eye-btn" onclick="togglePwd('input-senha', 'eye-icon')">
+            <i class="fa-solid fa-eye" id="eye-icon"></i>
+          </button>
+        </div>
+      </div>
+      <div class="login-error" id="login-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="login-error-msg">Credenciais incorretas.</span>
+      </div>
+      <button type="submit" class="btn-login" id="login-btn">
+        <i class="fa-solid fa-right-to-bracket"></i> Entrar no Portal
+      </button>
+    </form>
+
+    <!-- ══ FORM: CADASTRO ══ -->
+    <form id="register-form" onsubmit="doRegister(event)" style="display:none">
+      <div class="login-field">
+        <label class="login-label">CPF do Aluno</label>
+        <input type="text" class="login-input" id="reg-cpf" placeholder="000.000.000-00" autocomplete="off" oninput="formatCPFInput(this)" maxlength="14">
+        <div id="reg-cpf-status" style="margin-top:6px; font-size:0.78rem; font-weight:600; display:none;"></div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Email</label>
+        <input type="email" class="login-input" id="reg-email" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="login-field">
+        <label class="login-label">Senha</label>
+        <div class="login-input-wrap">
+          <input type="password" class="login-input" id="reg-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          <button type="button" class="login-eye-btn" onclick="togglePwd('reg-senha', 'eye-icon-reg')">
+            <i class="fa-solid fa-eye" id="eye-icon-reg"></i>
+          </button>
+        </div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Confirmar Senha</label>
+        <input type="password" class="login-input" id="reg-senha2" placeholder="Repita a senha" autocomplete="new-password">
+      </div>
+      <div class="login-error" id="reg-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="reg-error-msg">Erro.</span>
+      </div>
+      <button type="submit" class="btn-login" id="reg-btn">
+        <i class="fa-solid fa-user-plus"></i> Criar Minha Conta
+      </button>
+    </form>
+
+    <div class="login-back-link">
+      <a href="index.html"><i class="fa-solid fa-arrow-left"></i> Voltar ao site</a>
+    </div>
+  </div>
+
+  <!-- ══ ROLE SELECTOR (para super-admin com múltiplos roles) ══ -->
+  <div class="login-card" id="role-selector-card" style="display:none">
+    <div class="login-logo">
+      <div class="login-logo-icon" style="background:linear-gradient(135deg, #059669, #2563eb);"><i class="fa-solid fa-shield-halved"></i></div>
+      <div class="login-school-name" id="rs-user-name">Bem-vindo(a)!</div>
+      <div class="login-school-sub">Escolha o painel que deseja acessar</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px;" id="rs-roles-list">
+      <!-- preenchido pelo JS -->
+    </div>
+    <div style="margin-top:18px; text-align:center;">
+      <button type="button" class="login-eye-btn" onclick="doLogout()" style="color:rgba(255,255,255,0.4); font-size:.82rem; padding:8px 16px;">
+        <i class="fa-solid fa-right-from-bracket"></i> Sair
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     DASHBOARD APP
+════════════════════════════════════════ -->
+<div id="dashboard-app">
+
+  <!-- Sidebar overlay (mobile) -->
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside id="dash-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon"><i class="fa-solid fa-school"></i></div>
+        <div class="sidebar-logo-text">
+          <div class="s-name">Edith Nair</div>
+          <div class="s-sub">Portal Escolar</div>
+          <div class="sidebar-semed">SEMED · Viana·MA</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-inner">
+        <div class="sidebar-avatar" id="sb-avatar">E</div>
+        <div style="min-width:0">
+          <div class="sidebar-user-name" id="sb-name">Carregando...</div>
+          <div class="sidebar-user-role">
+            <span class="role-badge" id="sb-role-badge">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebar-nav"><!-- Preenchido pelo JS --></nav>
+
+    <div class="system-status-bar">
+      <div class="system-status-inner" id="sidebar-system-status">
+        <div class="system-status-dot"></div>
+        <span id="sb-sys-text">Sistema aberto</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <a href="index.html" class="sidebar-site-link">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver site público
+      </a>
+      <button class="sidebar-logout" onclick="doLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <div id="dash-main">
+    <div class="dash-topbar">
+      <div class="topbar-left">
+        <button id="mobile-menu-btn" onclick="toggleSidebar()">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="topbar-title-block">
+          <div id="topbar-page-title">Dashboard</div>
+          <div id="topbar-page-sub">Visão geral</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-system-badge" id="topbar-system-badge">
+          <i class="fa-solid fa-circle" style="font-size:.55rem"></i>
+          <span>Sistema</span>
+        </div>
+        <button class="topbar-bell" onclick="showPage(SESSION.role === 'aluno' ? 'page-aluno-avisos' : SESSION.role === 'professor' ? 'page-prof-avisos' : 'page-dir-avisos')" data-tooltip="Avisos">
+          <i class="fa-solid fa-bell"></i>
+          <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+        </button>
+        <div class="topbar-avatar" id="topbar-avatar">E</div>
+      </div>
+    </div>
+
+    <div class="dash-pages" id="dash-pages">
+
+      <!-- ══════════════════════════════════
+           ALUNO: INÍCIO
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-inicio">
+        <!-- Welcome banner -->
+        <div class="welcome-banner" id="aluno-welcome-banner">
+          <div class="wb-content">
+            <div class="wb-tag"><i class="fa-solid fa-star"></i> Ano Letivo 2026</div>
+            <div class="wb-title" id="wb-aluno-nome">Olá, Estudante!</div>
+            <div class="wb-sub" id="wb-aluno-turma">Carregando...</div>
+            <div class="wb-stats" id="wb-aluno-stats">
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-disc">—</span>
+                <span class="wb-stat-label">Disciplinas</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-aprov">—</span>
+                <span class="wb-stat-label">Aprovações</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-freq">—</span>
+                <span class="wb-stat-label">Freq. %</span>
+              </div>
+            </div>
+          </div>
+          <div class="wb-avatar" id="wb-aluno-avatar">A</div>
+        </div>
+
+        <div class="stats-row stagger-container" id="aluno-stats-row"></div>
+
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-chart-line"></i> Desempenho por Disciplina</div>
+            <span class="badge badge-blue" id="aluno-bim-badge">—</span>
+          </div>
+          <div class="panel-card-body" id="aluno-notas-resumo">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+
+        <!-- Student Charts -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-bullseye"></i> Desempenho por Disciplina</div></div>
+            <div class="panel-card-body" style="display:flex;justify-content:center"><canvas id="chart-aluno-radar" style="max-height:280px"></canvas></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-chart-line"></i> Evolução Bimestral</div></div>
+            <div class="panel-card-body"><canvas id="chart-aluno-evolucao" style="max-height:280px"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ALUNO: NOTAS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-notas">
+        <div class="closed-banner" id="aluno-closed-banner" style="display:none;background:var(--danger-light);border:1px solid var(--danger);border-radius:var(--r-lg);padding:14px 18px;display:none;align-items:center;gap:12px;margin-bottom:16px;color:var(--danger);">
+          <i class="fa-solid fa-lock fa-lg"></i>
+          <div>
+            <div style="font-weight:800;">Notas em período de consolidação</div>
+            <div style="font-size:.82rem;opacity:.8">O sistema está fechado pelo(a) diretor(a).</div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-graduation-cap"></i> Minhas Notas — <span id="aluno-nome-notas"></span></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-sm btn-ghost" onclick="generateBoletimPDF()" data-tooltip="Gerar Boletim PDF"><i class="fa-solid fa-file-pdf"></i> Boletim</button>
+              <span class="badge badge-outline" id="aluno-turma-badge-notas"></span>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table" id="aluno-notas-table">
+              <thead>
+                <tr>
+                  <th>Disciplina</th>
+                  <th class="text-center" id="th-b1">1º Bimestre</th>
+                  <th class="text-center" id="th-b2">2º Bimestre</th>
+                  <th class="text-center" id="th-b3">3º Bimestre</th>
+                  <th class="text-center" id="th-b4">4º Bimestre</th>
+                  <th class="text-center">Nota Anual</th>
+                  <th class="text-center">Situação</th>
+                </tr>
+              </thead>
+              <tbody id="aluno-notas-tbody">
+                <tr><td colspan="7"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ALUNO: FREQUÊNCIA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-frequencia">
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-calendar-check"></i> Minha Frequência — <span id="aluno-nome-freq"></span></div>
+          </div>
+          <div class="panel-card-body" id="aluno-freq-body">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ALUNO: MEU HORÁRIO
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-horario">
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-calendar-week"></i> Meu Horário Semanal</div>
+          </div>
+          <div class="panel-card-body" id="aluno-horario-body">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ALUNO: DIÁRIO DE AULAS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-diario">
+        <div class="diario-hero-banner" style="background:linear-gradient(135deg,#1e3d7a 0%,#0f2347 50%,#162e5c 100%)">
+          <div class="diario-hero-content">
+            <div class="diario-hero-icon" style="background:rgba(255,255,255,0.12)"><i class="fa-solid fa-book-open"></i></div>
+            <div>
+              <div class="diario-hero-title">Diário de Aulas</div>
+              <div class="diario-hero-sub">Acompanhe os conteúdos ministrados em cada disciplina da sua turma</div>
+            </div>
+          </div>
+          <div class="diario-hero-stats" id="aluno-diario-stats">
+            <div class="diario-stat-chip"><i class="fa-solid fa-calendar-check"></i> <span id="aluno-diario-total">0</span> aulas registradas</div>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="panel-card">
+          <div class="diario-filter-bar">
+            <div class="diario-filter-left">
+              <select class="form-control form-select" id="aluno-diario-filtro-disc" style="min-width:160px;max-width:220px" onchange="renderAlunoDiario()">
+                <option value="">Todas as disciplinas</option>
+              </select>
+              <div class="search-box-wrap" style="margin-bottom:0;min-width:180px;flex:1">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="search" class="form-control search-box" id="aluno-diario-search" placeholder="Buscar conteúdo..." oninput="renderAlunoDiario()">
+              </div>
+            </div>
+            <div class="diario-filter-right">
+              <span class="badge badge-outline" id="aluno-diario-count">0 registros</span>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table diario-table">
+              <thead>
+                <tr>
+                  <th style="width:36px">#</th>
+                  <th style="min-width:100px"><i class="fa-regular fa-calendar"></i> Data</th>
+                  <th style="min-width:120px"><i class="fa-solid fa-book"></i> Disciplina</th>
+                  <th style="min-width:200px"><i class="fa-solid fa-pen-fancy"></i> Conteúdo Ministrado</th>
+                  <th style="min-width:60px" class="text-center"><i class="fa-solid fa-clock"></i> Aulas</th>
+                  <th><i class="fa-solid fa-chalkboard-user"></i> Professor</th>
+                  <th><i class="fa-solid fa-comment-dots"></i> Observações</th>
+                </tr>
+              </thead>
+              <tbody id="aluno-diario-tbody">
+                <tr><td colspan="7"><div class="shimmer shimmer-card"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ALUNO: AVISOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-avisos">
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-bell"></i> Comunicados da Escola</div>
+          </div>
+          <div class="panel-card-body" id="aluno-avisos-body">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: INÍCIO
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-inicio">
+        <!-- Welcome banner professor -->
+        <div class="welcome-banner" style="background:linear-gradient(135deg,#1e3d7a 0%,#0f2347 45%,#162e5c 100%)">
+          <div class="wb-content">
+            <div class="wb-tag"><i class="fa-solid fa-chalkboard-user"></i> Professor(a)</div>
+            <div class="wb-title" id="wb-prof-nome">Bem-vindo(a)!</div>
+            <div class="wb-sub" id="wb-prof-turmas">Carregando informações...</div>
+            <div class="wb-stats" id="wb-prof-stats">
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-turmas">—</span>
+                <span class="wb-stat-label">Turmas</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-alunos">—</span>
+                <span class="wb-stat-label">Alunos</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-stat-aee">—</span>
+                <span class="wb-stat-label">Fichas AEE</span>
+              </div>
+            </div>
+          </div>
+          <div class="wb-avatar" id="wb-prof-avatar">P</div>
+        </div>
+
+        <div class="closed-banner" id="prof-closed-banner" style="display:none;background:rgba(220,38,38,0.1);border:1.5px solid var(--danger);border-radius:var(--r-lg);padding:14px 18px;align-items:center;gap:12px;margin-bottom:16px;color:var(--danger);">
+          <i class="fa-solid fa-lock fa-lg"></i>
+          <div>
+            <div style="font-weight:800;">Sistema fechado pelo(a) Diretor(a)</div>
+            <div style="font-size:.82rem;opacity:.8" id="prof-closed-time">As notas não podem ser editadas neste momento.</div>
+          </div>
+        </div>
+
+        <div class="stats-row stagger-container" id="prof-stats-row"></div>
+
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-users-rectangle"></i> Minhas Turmas</div>
+          </div>
+          <div class="panel-card-body" id="prof-turmas-resumo">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: LANÇAR NOTAS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-notas">
+        <div id="prof-notas-closed-banner" style="display:none;background:rgba(220,38,38,0.1);border:1.5px solid var(--danger);border-radius:var(--r-lg);padding:14px 18px;display:none;align-items:center;gap:12px;margin-bottom:16px;color:var(--danger);">
+          <i class="fa-solid fa-lock fa-lg"></i>
+          <div>
+            <div style="font-weight:800;">Sistema fechado — edição de notas bloqueada</div>
+            <div style="font-size:.82rem;opacity:.8" id="prof-notas-closed-time">Aguarde a reabertura pelo(a) diretor(a).</div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-pen-to-square"></i> Lançamento de Notas</div>
+          </div>
+          <!-- Filter bar -->
+          <div style="padding:14px 22px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--surface-2);">
+            <select class="form-control form-select" id="notas-select-turma" style="min-width:160px;max-width:200px;flex:1" onchange="loadNotasTurma()">
+              <option value="">Selecione a turma...</option>
+            </select>
+            <select class="form-control form-select" id="notas-select-disc" style="min-width:160px;max-width:200px;flex:1" onchange="loadNotasTurma()">
+              <option value="">Selecione disciplina...</option>
+            </select>
+            <select class="form-control form-select" id="notas-select-bimestre" style="min-width:140px;max-width:160px;flex:1" onchange="loadNotasTurma()">
+              <option value="1">1º Bimestre</option>
+              <option value="2">2º Bimestre</option>
+              <option value="3">3º Bimestre</option>
+              <option value="4">4º Bimestre</option>
+            </select>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Aluno</th>
+                  <th>Matrícula</th>
+                  <th class="text-center" id="notas-th-b1">1º Bim</th>
+                  <th class="text-center" id="notas-th-b2">2º Bim</th>
+                  <th class="text-center" id="notas-th-b3">3º Bim</th>
+                  <th class="text-center" id="notas-th-b4">4º Bim</th>
+                  <th class="text-center">Nota Anual</th>
+                  <th class="text-center">Situação</th>
+                </tr>
+              </thead>
+              <tbody id="notas-tbody">
+                <tr><td colspan="8" class="text-center" style="padding:40px;color:var(--text-muted);">
+                  <i class="fa-solid fa-arrow-up" style="display:block;font-size:1.5rem;margin-bottom:8px;opacity:.4"></i>
+                  Selecione turma e disciplina
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:14px 22px;border-top:1px solid var(--border);display:none;background:var(--surface-2);" id="notas-save-bar">
+            <button class="btn btn-success" onclick="saveTodasNotas()" id="btn-salvar-notas">
+              <i class="fa-solid fa-floppy-disk"></i> Salvar Notas
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: MINHA TURMA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-turma">
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-users"></i> Alunos da Turma</div>
+            <select class="form-control form-select" id="turma-select" style="min-width:160px;max-width:200px" onchange="loadAlunosTurma()">
+              <option value="">Selecione a turma...</option>
+            </select>
+          </div>
+          <!-- Search -->
+          <div style="padding:12px 22px;border-bottom:1px solid var(--border)">
+            <div class="search-box-wrap">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="search" class="form-control search-box" id="turma-search" placeholder="Buscar aluno..." oninput="filterAlunosList()">
+            </div>
+          </div>
+          <div class="panel-card-body" id="turma-alunos-body">
+            <div class="empty-state">
+              <div class="empty-state-icon"><i class="fa-solid fa-users"></i></div>
+              <div class="empty-state-title">Selecione uma turma</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: FREQUÊNCIA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-frequencia">
+        <div class="panel-card" style="margin-bottom:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-calendar-check"></i> Registrar Frequência</div>
+          </div>
+          <div style="padding:14px 22px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--surface-2);">
+            <select class="form-control form-select" id="freq-turma-select" style="min-width:160px;max-width:200px;flex:1" onchange="loadFreqAlunos()">
+              <option value="">Selecione a turma...</option>
+            </select>
+            <input type="date" class="form-control" id="freq-data" style="min-width:150px;max-width:180px;flex:1" onchange="loadFreqAlunos()">
+          </div>
+          <div class="panel-card-body" id="freq-body">
+            <div class="empty-state">
+              <div class="empty-state-icon"><i class="fa-solid fa-calendar-days"></i></div>
+              <div class="empty-state-title">Selecione turma e data</div>
+              <div class="empty-state-desc">Escolha a turma e a data para registrar a presença dos alunos.</div>
+            </div>
+          </div>
+          <div style="padding:14px 22px;border-top:1px solid var(--border);display:none;background:var(--surface-2);" id="freq-save-bar">
+            <button class="btn btn-success btn-lg" onclick="saveFrequencia()">
+              <i class="fa-solid fa-floppy-disk"></i> Salvar Frequência
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: DIÁRIO DIGITAL
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-diario">
+        <!-- Header banner -->
+        <div class="diario-hero-banner">
+          <div class="diario-hero-content">
+            <div class="diario-hero-icon"><i class="fa-solid fa-book-open"></i></div>
+            <div>
+              <div class="diario-hero-title">Diário Digital de Aulas</div>
+              <div class="diario-hero-sub">Registre conteúdos ministrados e acompanhe o histórico completo</div>
+            </div>
+          </div>
+          <div class="diario-hero-stats" id="diario-stats-badges">
+            <div class="diario-stat-chip"><i class="fa-solid fa-calendar-check"></i> <span id="diario-stat-total">0</span> registros</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-chalkboard"></i> <span id="diario-stat-turmas">0</span> turmas</div>
+          </div>
+        </div>
+
+        <!-- New entry form (collapsible) -->
+        <div class="panel-card diario-form-card" id="diario-form-card">
+          <div class="panel-card-header" style="cursor:pointer" onclick="toggleDiarioForm()">
+            <div class="panel-card-title"><i class="fa-solid fa-plus-circle"></i> Novo Registro de Aula</div>
+            <button class="btn btn-sm btn-ghost" id="diario-form-toggle-btn"><i class="fa-solid fa-chevron-down" id="diario-form-chevron"></i></button>
+          </div>
+          <div class="diario-form-body" id="diario-form-body">
+            <div class="panel-card-body">
+              <div class="diario-form-grid">
+                <div class="form-group">
+                  <label class="form-label">Turma *</label>
+                  <select class="form-control form-select" id="diario-turma">
+                    <option value="">Selecione a turma...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Disciplina</label>
+                  <select class="form-control form-select" id="diario-disciplina">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Data</label>
+                  <input type="date" class="form-control" id="diario-data">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Nº de Aulas</label>
+                  <select class="form-control form-select" id="diario-qtd-aulas">
+                    <option value="1">1 aula</option>
+                    <option value="2">2 aulas</option>
+                    <option value="3">3 aulas</option>
+                    <option value="4">4 aulas</option>
+                    <option value="5">5 aulas</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Conteúdo Ministrado *</label>
+                <textarea class="form-control" id="diario-conteudo" rows="3" placeholder="Descreva o conteúdo da aula de hoje..."></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Observações da Turma</label>
+                <textarea class="form-control" id="diario-obs" rows="2" placeholder="Comportamento, participação, etc. (opcional)..."></textarea>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="btn btn-ghost" onclick="toggleDiarioForm()"><i class="fa-solid fa-xmark"></i> Cancelar</button>
+                <button class="btn btn-success" onclick="saveDiario()"><i class="fa-solid fa-floppy-disk"></i> Salvar Registro</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="panel-card">
+          <div class="diario-filter-bar">
+            <div class="diario-filter-left">
+              <select class="form-control form-select" id="diario-filtro-turma" style="min-width:160px;max-width:200px" onchange="renderDiarioHistorico()">
+                <option value="">Todas as turmas</option>
+              </select>
+              <div class="search-box-wrap" style="margin-bottom:0;min-width:180px;flex:1">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="search" class="form-control search-box" id="diario-search" placeholder="Buscar conteúdo..." oninput="renderDiarioHistorico()">
+              </div>
+            </div>
+            <div class="diario-filter-right">
+              <span class="badge badge-outline" id="diario-filter-count">0 registros</span>
+            </div>
+          </div>
+          <!-- Spreadsheet table -->
+          <div class="table-scroll">
+            <table class="data-table diario-table" id="diario-table">
+              <thead>
+                <tr>
+                  <th style="width:36px">#</th>
+                  <th style="min-width:100px"><i class="fa-regular fa-calendar"></i> Data</th>
+                  <th style="min-width:110px"><i class="fa-solid fa-chalkboard"></i> Turma</th>
+                  <th style="min-width:120px"><i class="fa-solid fa-book"></i> Disciplina</th>
+                  <th style="min-width:200px"><i class="fa-solid fa-pen-fancy"></i> Conteúdo Ministrado</th>
+                  <th style="min-width:60px" class="text-center"><i class="fa-solid fa-clock"></i> Aulas</th>
+                  <th><i class="fa-solid fa-comment-dots"></i> Observações</th>
+                  <th style="width:60px" class="text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="diario-historico">
+                <tr><td colspan="8"><div class="shimmer shimmer-card"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: ATIVIDADES
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-atividades">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Atividades Publicadas</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Provas, trabalhos e exercícios por turma</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('modal-atividade')">
+            <i class="fa-solid fa-plus"></i> Nova Atividade
+          </button>
+        </div>
+        <div id="atividades-cards" style="display:grid;gap:12px"></div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: AEE
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-aee">
+        <div style="background:linear-gradient(135deg,#4c1d95,#6d28d9,#7c3aed);border-radius:var(--r-xl);padding:24px 28px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-30px;right:-30px;width:180px;height:180px;background:rgba(255,255,255,0.05);border-radius:50%"></div>
+          <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+            <div>
+              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.5);margin-bottom:6px"><i class="fa-solid fa-heart-pulse" style="margin-right:4px"></i> AEE</div>
+              <h2 style="font-weight:900;font-size:1.2rem;margin-bottom:4px">Atendimento Educacional Especializado</h2>
+              <p style="color:rgba(255,255,255,.55);font-size:.85rem">Fichas individuais de alunos com necessidades especiais</p>
+            </div>
+            <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.25)" onclick="openModal('modal-aee')">
+              <i class="fa-solid fa-plus"></i> Nova Ficha
+            </button>
+          </div>
+        </div>
+        <div id="aee-cards-grid"></div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           PROFESSOR: AVISOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-avisos">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="openModal('modal-aviso')">
+            <i class="fa-solid fa-plus"></i> Novo Aviso
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-bell"></i> Avisos Publicados</div>
+          </div>
+          <div class="panel-card-body" id="prof-avisos-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: DASHBOARD
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-inicio">
+        <div class="system-control-card">
+          <div class="system-toggle-big">
+            <div class="system-toggle-info">
+              <div class="system-toggle-title" id="dir-sys-title">Sistema Aberto ✅</div>
+              <div class="system-toggle-desc">Professores podem lançar e editar notas normalmente.</div>
+              <div class="system-status-time" id="dir-sys-time"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+              <label class="big-toggle" title="Fechar/Abrir sistema de notas">
+                <input type="checkbox" id="dir-sys-toggle" onchange="toggleSistema()">
+                <div class="big-toggle-slider"></div>
+              </label>
+              <span style="color:rgba(255,255,255,.45);font-size:.72rem;font-weight:700" id="dir-sys-label">ABERTO</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-row stagger-container" id="dir-stats-row"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-users-rectangle"></i> Turmas Ativas</div>
+            </div>
+            <div class="panel-card-body" id="dir-turmas-list"></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-bell"></i> Últimos Avisos</div>
+              <button class="btn btn-sm btn-primary" onclick="openModal('modal-aviso')">
+                <i class="fa-solid fa-plus"></i> Novo
+              </button>
+            </div>
+            <div class="panel-card-body" id="dir-avisos-list"></div>
+          </div>
+        </div>
+
+        <!-- Professor Status + Calendar -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-clipboard-check"></i> Status de Lançamento</div>
+              <span class="badge badge-outline" id="dir-bim-status-badge">—</span>
+            </div>
+            <div class="panel-card-body" id="dir-prof-status-body"><div class="shimmer shimmer-card"></div></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-calendar-days"></i> Calendário Escolar</div>
+              <button class="btn btn-sm btn-primary" onclick="openModalEvento()"><i class="fa-solid fa-plus"></i> Evento</button>
+            </div>
+            <div class="panel-card-body" id="dir-calendario-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: ALUNOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-alunos">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1">
+            <select class="form-control form-select" id="dir-alunos-filtro-turma" style="min-width:150px;max-width:200px" onchange="loadDirAlunos()">
+              <option value="">Todas as turmas</option>
+            </select>
+            <input type="search" class="form-control" id="dir-alunos-search" placeholder="🔍 Buscar aluno..." style="min-width:150px;max-width:220px" oninput="loadDirAlunos()">
+          </div>
+          <button class="btn btn-primary" onclick="openModalAluno()">
+            <i class="fa-solid fa-plus"></i> Novo Aluno
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Nome</th><th>Matrícula</th><th>Turma</th><th>Turno</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="dir-alunos-tbody">
+                <tr><td colspan="5"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: PROFESSORES
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-professores">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="openModalProfessor()">
+            <i class="fa-solid fa-plus"></i> Novo Professor
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Nome</th><th>Turmas</th><th>Disciplinas</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="dir-profs-tbody">
+                <tr><td colspan="4"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: TURMAS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-turmas">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="openModalTurma()">
+            <i class="fa-solid fa-plus"></i> Nova Turma
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Turma</th><th>Turno</th><th>Professor</th><th class="text-center">Alunos</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="dir-turmas-tbody">
+                <tr><td colspan="5"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: RELATÓRIOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-relatorios">
+        <div class="panel-card" style="margin-bottom:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-chart-pie"></i> Relatório Geral de Notas</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select class="form-control form-select" id="rel-turma-select" style="min-width:150px" onchange="loadRelatorio()">
+                <option value="">Todas as turmas</option>
+              </select>
+              <select class="form-control form-select" id="rel-bimestre-select" style="min-width:140px" onchange="loadRelatorio()">
+                <option value="">Todos bimestres</option>
+                <option value="1">1º Bimestre</option>
+                <option value="2">2º Bimestre</option>
+                <option value="3">3º Bimestre</option>
+                <option value="4">4º Bimestre</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="exportPDF()"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+              <button class="btn btn-ghost btn-sm" onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir</button>
+            </div>
+          </div>
+          <div class="panel-card-body">
+            <div class="stats-row stagger-container" id="rel-stats-row" style="margin-bottom:0"></div>
+          </div>
+        </div>
+        <!-- Charts -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-chart-pie"></i> Situação Geral</div></div>
+            <div class="panel-card-body" style="display:flex;justify-content:center"><canvas id="chart-situacao" style="max-height:280px"></canvas></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-chart-column"></i> Médias por Disciplina</div></div>
+            <div class="panel-card-body"><canvas id="chart-medias" style="max-height:280px"></canvas></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-chart-line"></i> Evolução por Bimestre</div></div>
+            <div class="panel-card-body"><canvas id="chart-evolucao" style="max-height:280px"></canvas></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><div class="panel-card-title"><i class="fa-solid fa-chart-bar"></i> Frequência por Turma</div></div>
+            <div class="panel-card-body"><canvas id="chart-frequencia" style="max-height:280px"></canvas></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-table"></i> Notas por Aluno</div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Aluno</th><th>Turma</th><th>Disciplina</th>
+                  <th class="text-center">B1</th><th class="text-center">B2</th>
+                  <th class="text-center">B3</th><th class="text-center">B4</th>
+                  <th class="text-center">Anual</th><th class="text-center">Situação</th>
+                </tr>
+              </thead>
+              <tbody id="rel-tbody">
+                <tr><td colspan="9"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: HORÁRIOS DE AULA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-horarios">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Grade Horária Semanal</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Monte o quadro de horários fixo de cada turma (segunda a sexta)</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModalGradeSlot()">
+            <i class="fa-solid fa-plus"></i> Adicionar Aula
+          </button>
+        </div>
+
+        <!-- Seletor de turma -->
+        <div class="panel-card mb-16">
+          <div class="panel-card-body" style="padding:12px 16px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="font-weight:700;font-size:.85rem;color:var(--text);white-space:nowrap">Turma:</label>
+              <select class="form-control form-select" id="grade-turma-select" style="width:auto;min-width:180px" onchange="loadDirHorarios()">
+                <option value="">Selecione a turma...</option>
+              </select>
+              <span id="grade-total-aulas" style="font-size:.78rem;color:var(--text-muted);font-weight:600;margin-left:auto"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grade visual semanal -->
+        <div id="grade-semanal-container">
+          <div class="empty-state">
+            <div class="empty-state-icon"><i class="fa-solid fa-calendar-week"></i></div>
+            <div class="empty-state-title">Selecione uma turma para visualizar a grade</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: AVISOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-avisos">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="openModal('modal-aviso')">
+            <i class="fa-solid fa-plus"></i> Novo Aviso
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-bell"></i> Todos os Avisos</div>
+          </div>
+          <div class="panel-card-body" id="dir-avisos-all-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: CONTEÚDO DO SITE
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-conteudo">
+        <!-- SEMED Banner -->
+        <div style="background:linear-gradient(135deg,var(--purple),#9333ea);border-radius:var(--r-xl);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0"><i class="fa-solid fa-palette"></i></div>
+          <div>
+            <div style="font-weight:800;font-size:1rem">Gerenciar Conteúdo do Site</div>
+            <div style="color:rgba(255,255,255,.55);font-size:.82rem">Edite as seções da página inicial: depoimentos, galeria e equipe.</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="content-tabs" style="display:flex;gap:6px;margin-bottom:20px">
+          <button class="btn btn-sm content-tab active" data-tab="tab-depoimentos" onclick="switchContentTab('tab-depoimentos')"><i class="fa-solid fa-quote-left"></i> Depoimentos</button>
+          <button class="btn btn-sm content-tab" data-tab="tab-galeria" onclick="switchContentTab('tab-galeria')"><i class="fa-solid fa-camera"></i> Galeria</button>
+          <button class="btn btn-sm content-tab" data-tab="tab-equipe" onclick="switchContentTab('tab-equipe')"><i class="fa-solid fa-users"></i> Equipe</button>
+        </div>
+
+        <!-- TAB: Depoimentos -->
+        <div class="content-tab-panel active" id="tab-depoimentos">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-quote-left"></i> O que dizem sobre nós</div>
+              <button class="btn btn-sm btn-primary" onclick="openModalDepoimento()"><i class="fa-solid fa-plus"></i> Novo</button>
+            </div>
+            <div class="panel-card-body">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Nome</th><th>Cargo</th><th>Texto</th><th>Cor</th><th class="text-right">Ações</th></tr>
+                  </thead>
+                  <tbody id="dir-depoimentos-tbody"><tr><td colspan="5"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Galeria -->
+        <div class="content-tab-panel" id="tab-galeria">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-camera"></i> Momentos da Nossa Escola</div>
+              <button class="btn btn-sm btn-primary" onclick="openModalGaleria()"><i class="fa-solid fa-plus"></i> Novo</button>
+            </div>
+            <div class="panel-card-body">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Título</th><th>Ícone</th><th>Preview</th><th class="text-right">Ações</th></tr>
+                  </thead>
+                  <tbody id="dir-galeria-tbody"><tr><td colspan="4"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Equipe -->
+        <div class="content-tab-panel" id="tab-equipe">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-users"></i> Nossa Comunidade Escolar</div>
+              <button class="btn btn-sm btn-primary" onclick="openModalEquipe()"><i class="fa-solid fa-plus"></i> Novo</button>
+            </div>
+            <div class="panel-card-body">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Nome</th><th>Cargo</th><th>Ícone</th><th>Cor</th><th class="text-right">Ações</th></tr>
+                  </thead>
+                  <tbody id="dir-equipe-tbody"><tr><td colspan="5"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: CONFIGURAÇÕES
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-config">
+        <!-- SEMED Banner -->
+        <div style="background:linear-gradient(135deg,var(--primary),#1d3d7a);border-radius:var(--r-xl);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:48px;height:48px;background:rgba(255,255,255,.1);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0"><i class="fa-solid fa-building-columns"></i></div>
+          <div>
+            <div style="font-weight:800;font-size:1rem">Configurações do Sistema</div>
+            <div style="color:rgba(255,255,255,.55);font-size:.82rem">Secretaria Municipal de Educação · Viana–MA · Ano Letivo 2026</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-school"></i> Dados da Escola</div>
+            </div>
+            <div class="panel-card-body">
+              <div class="form-group">
+                <label class="form-label">Nome da Escola</label>
+                <input type="text" class="form-control" id="cfg-escola-nome">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cidade / Estado</label>
+                <input type="text" class="form-control" id="cfg-escola-cidade">
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhatsApp</label>
+                <input type="text" class="form-control" id="cfg-escola-wpp" placeholder="(98) 99999-9999">
+              </div>
+              <div class="form-group">
+                <label class="form-label">E-mail Institucional</label>
+                <input type="email" class="form-control" id="cfg-escola-email">
+              </div>
+              <button class="btn btn-primary" onclick="saveEscolaConfig()">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Dados
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-sliders"></i> Configurações Gerais</div>
+            </div>
+            <div class="panel-card-body">
+              <div class="form-group">
+                <label class="form-label">Nota Mínima para Aprovação</label>
+                <input type="number" class="form-control" id="cfg-nota-min" min="0" max="10" step="0.5">
+                <p class="form-hint">Padrão SEMED: 5,0 pontos</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bimestre Atual</label>
+                <select class="form-control form-select" id="cfg-bimestre-atual">
+                  <option value="1">1º Bimestre</option>
+                  <option value="2">2º Bimestre</option>
+                  <option value="3">3º Bimestre</option>
+                  <option value="4">4º Bimestre</option>
+                </select>
+              </div>
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+              <div class="form-group">
+                <label class="form-label">Senha dos Professores</label>
+                <input type="text" class="form-control" id="cfg-senha-prof">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Senha do(a) Diretor(a)</label>
+                <input type="text" class="form-control" id="cfg-senha-dir">
+              </div>
+              <button class="btn btn-primary" onclick="saveSystemConfig()">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: CIRCULARES (da SEMED)
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-circulares">
+        <div style="background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:var(--r-xl);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0"><i class="fa-solid fa-scroll"></i></div>
+          <div>
+            <div style="font-weight:800;font-size:1rem">Circulares da SEMED</div>
+            <div style="color:rgba(255,255,255,.55);font-size:.82rem">Resoluções, portarias e ofícios da Secretaria de Educação. Confirme ciência.</div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-scroll"></i> Circulares Recebidas</div>
+            <span class="badge badge-red" id="dir-circ-pendentes-badge" style="display:none">0 pendentes</span>
+          </div>
+          <div class="panel-card-body" id="dir-circulares-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════
+           ═══════════  SECRETARIA DE EDUCAÇÃO (SEMED)  ═══════════
+      ══════════════════════════════════════════════════════════ -->
+
+      <!-- ══════════════════════════════════
+           SEMED: DASHBOARD BIG DATA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-sec-inicio">
+        <!-- Welcome Banner SEMED -->
+        <div class="welcome-banner semed-banner">
+          <div class="wb-content">
+            <div class="wb-tag"><i class="fa-solid fa-building-columns"></i> Secretaria Municipal de Educação</div>
+            <div class="wb-title" id="wb-sec-nome">Painel da SEMED</div>
+            <div class="wb-sub">Macrogestão e Indicadores Educacionais · Viana — MA</div>
+            <div class="wb-stats" id="wb-sec-stats">
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-sec-alunos">—</span>
+                <span class="wb-stat-label">Alunos</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-sec-profs">—</span>
+                <span class="wb-stat-label">Professores</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-sec-turmas">—</span>
+                <span class="wb-stat-label">Turmas</span>
+              </div>
+              <div class="wb-stat">
+                <span class="wb-stat-num" id="wb-sec-aprovacao">—</span>
+                <span class="wb-stat-label">Aprovação %</span>
+              </div>
+            </div>
+          </div>
+          <div class="wb-avatar semed-avatar"><i class="fa-solid fa-building-columns"></i></div>
+        </div>
+
+        <div class="stats-row stagger-container" id="sec-stats-row"></div>
+
+        <!-- IDEB + Evasão Charts -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-chart-line"></i> Evolução IDEB</div>
+              <span class="badge badge-blue" id="sec-ideb-ultimo">—</span>
+            </div>
+            <div class="panel-card-body"><canvas id="chart-ideb" style="max-height:300px"></canvas></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-triangle-exclamation"></i> Risco de Evasão por Turma</div>
+              <span class="badge badge-red" id="sec-evasao-total">—</span>
+            </div>
+            <div class="panel-card-body" id="sec-evasao-body"><div class="shimmer shimmer-card"></div></div>
+          </div>
+        </div>
+
+        <!-- Alertas de Evasão -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-bell" style="color:var(--danger)"></i> Alertas Automáticos</div>
+          </div>
+          <div class="panel-card-body" id="sec-alertas-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           SEMED: ESCOLAS DA REDE
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-sec-escolas">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Escolas da Rede Municipal</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Cadastro e gestão das unidades escolares</p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openModalEscola()"><i class="fa-solid fa-plus"></i> Nova Escola</button>
+        </div>
+
+        <div class="stats-row" id="sec-escolas-stats"></div>
+
+        <!-- Filtros -->
+        <div class="panel-card mb-16">
+          <div class="panel-card-body" style="padding:12px 16px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <div class="search-box-wrap" style="flex:1;min-width:200px;margin-bottom:0">
+                <i class="fa-solid fa-search search-icon"></i>
+                <input type="text" class="form-control search-box" id="sec-escolas-busca" placeholder="Buscar escola..." oninput="filterEscolas()">
+              </div>
+              <select class="form-control form-select" id="sec-escolas-filtro-tipo" style="width:auto;min-width:140px" onchange="filterEscolas()">
+                <option value="">Todas</option>
+                <option value="urbana">🏙️ Urbana</option>
+                <option value="rural">🌾 Rural</option>
+              </select>
+              <select class="form-control form-select" id="sec-escolas-filtro-status" style="width:auto;min-width:140px" onchange="filterEscolas()">
+                <option value="ativa">✅ Ativas</option>
+                <option value="inativa">❌ Inativas</option>
+                <option value="">Todas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid de Escolas -->
+        <div id="sec-escolas-grid"></div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           SEMED: GESTÃO FINANCEIRA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-sec-financeiro">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Gestão de Repasses e Merenda</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Controle financeiro e estoque escolar</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="openModalRepasse()"><i class="fa-solid fa-plus"></i> Novo Repasse</button>
+            <button class="btn btn-success" onclick="openModalMerenda()"><i class="fa-solid fa-plus"></i> Item Merenda</button>
+          </div>
+        </div>
+
+        <!-- Totais financeiros -->
+        <div class="stats-row stagger-container" id="sec-financeiro-stats"></div>
+
+        <!-- Repasses -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-money-bill-wave"></i> Repasses Financeiros</div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Tipo</th><th>Descrição</th><th>Data</th><th class="text-right">Valor (R$)</th><th class="text-center">Status</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="sec-repasses-tbody"><tr><td colspan="6"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Estoque Merenda -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-utensils"></i> Estoque de Merenda Escolar</div>
+            <span class="badge badge-red" id="sec-estoque-alerta" style="display:none">⚠️ Estoque Crítico</span>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Item</th><th class="text-center">Qtd.</th><th>Unidade</th><th class="text-center">Mín.</th><th>Última Entrada</th><th>Fornecedor</th><th class="text-center">Status</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="sec-merenda-tbody"><tr><td colspan="8"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Gráfico de Consumo -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-chart-bar"></i> Consumo Diário de Merenda (últimos 14 dias)</div>
+          </div>
+          <div class="panel-card-body"><canvas id="chart-consumo" style="max-height:280px"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           SEMED: AUDITORIA E CENSO
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-sec-auditoria">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Auditoria e Censo Escolar</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Quadro de lotação, déficits e exportação de dados</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="gerarRelatorioCenso('pdf')"><i class="fa-solid fa-file-pdf"></i> Relatório PDF</button>
+            <button class="btn btn-ghost" onclick="gerarRelatorioCenso('csv')"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="stats-row stagger-container" id="sec-auditoria-stats"></div>
+
+        <!-- Quadro de Lotação -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-id-badge"></i> Quadro de Lotação de Professores</div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Professor</th><th>Disciplinas</th><th class="text-center">Turmas</th><th class="text-center">Aulas Registradas</th><th class="text-center">Carga Prevista</th><th class="text-center">Status</th></tr>
+              </thead>
+              <tbody id="sec-lotacao-tbody"><tr><td colspan="6"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Turmas sem Professor -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px" class="responsive-2col">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-user-slash" style="color:var(--danger)"></i> Turmas sem Professor</div>
+            </div>
+            <div class="panel-card-body" id="sec-turmas-sem-prof"><div class="shimmer shimmer-card"></div></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <div class="panel-card-title"><i class="fa-solid fa-exclamation-circle" style="color:var(--warning)"></i> Disciplinas com Déficit</div>
+            </div>
+            <div class="panel-card-body" id="sec-deficit-body"><div class="shimmer shimmer-card"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           SEMED: CIRCULARES E OFÍCIOS
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-sec-circulares">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-weight:900;color:var(--primary);font-size:1.1rem">Central de Circulares e Ofícios</h2>
+            <p style="color:var(--text-muted);font-size:.8rem;margin-top:2px">Comunicação oficial top-down · Resoluções, portarias e ofícios</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModalCircular()"><i class="fa-solid fa-plus"></i> Nova Circular</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row stagger-container" id="sec-circulares-stats"></div>
+
+        <!-- Pendentes de Confirmação -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Pendentes de Confirmação</div>
+            <span class="badge badge-yellow" id="sec-circ-pendentes">—</span>
+          </div>
+          <div class="panel-card-body" id="sec-circ-pendentes-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+
+        <!-- Todas as Circulares -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-scroll"></i> Todas as Circulares</div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr><th>Nº</th><th>Título</th><th>Tipo</th><th>Publicação</th><th>Prazo</th><th class="text-center">Status</th><th class="text-right">Ações</th></tr>
+              </thead>
+              <tbody id="sec-circulares-tbody"><tr><td colspan="7"><div class="shimmer shimmer-row"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dash-pages -->
+  </div><!-- /dash-main -->
+
+  <!-- ══════ BOTTOM NAVIGATION (Mobile) ══════ -->
+  <nav id="bottom-nav" aria-label="Navegação mobile">
+    <div id="bottom-nav-inner"><!-- preenchido pelo JS --></div>
+  </nav>
+
+</div><!-- /dashboard-app -->
+
+<!-- ════════════════════════
+     MODAIS
+════════════════════════ -->
+
+<!-- Modal: Nova Atividade -->
+<div class="modal-overlay" id="modal-atividade">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-clipboard-list" style="color:var(--secondary);margin-right:8px"></i><span id="ativ-modal-title">Nova Atividade</span></div>
+      <button class="modal-close" onclick="closeModal('modal-atividade')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ativ-id">
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="ativ-titulo" placeholder="Ex: Prova de Interpretação de Texto">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Turma *</label>
+          <select class="form-control form-select" id="ativ-turma"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control form-select" id="ativ-tipo">
+            <option value="prova">📝 Prova</option>
+            <option value="trabalho">📋 Trabalho</option>
+            <option value="exercicio">✏️ Exercício</option>
+            <option value="projeto">🔬 Projeto</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Prazo</label>
+          <input type="date" class="form-control" id="ativ-prazo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pontuação</label>
+          <input type="number" class="form-control" id="ativ-pontos" value="10" min="0" max="100">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição e Instruções</label>
+        <textarea class="form-control" id="ativ-desc" rows="3" placeholder="O que os alunos devem fazer..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-atividade')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAtividade()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova Ficha AEE -->
+<div class="modal-overlay" id="modal-aee">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-heart-pulse" style="color:#9333ea;margin-right:8px"></i><span id="aee-modal-title">Nova Ficha AEE</span></div>
+      <button class="modal-close" onclick="closeModal('modal-aee')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="aee-id">
+      <div class="form-group">
+        <label class="form-label">Aluno *</label>
+        <select class="form-control form-select" id="aee-aluno"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Necessidade / Diagnóstico</label>
+        <textarea class="form-control" id="aee-necessidade" rows="2" placeholder="Descreva a necessidade educacional especial ou diagnóstico..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Plano de Atendimento Educacional</label>
+        <textarea class="form-control" id="aee-plano" rows="3" placeholder="Estratégias, adaptações curriculares, recursos pedagógicos..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações e Evolução</label>
+        <textarea class="form-control" id="aee-obs" rows="2" placeholder="Progresso, relatórios, reuniões com responsáveis..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-aee')">Cancelar</button>
+      <button class="btn btn-brand" onclick="saveAEE()"><i class="fa-solid fa-floppy-disk"></i> Salvar Ficha</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo Aviso -->
+<div class="modal-overlay" id="modal-aviso">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-bell" style="color:var(--warning);margin-right:8px"></i> Publicar Aviso</div>
+      <button class="modal-close" onclick="closeModal('modal-aviso')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="aviso-titulo" placeholder="Título do aviso ou comunicado">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control form-select" id="aviso-tipo">
+            <option value="info">ℹ️ Informativo</option>
+            <option value="urgente">⚠️ Urgente</option>
+            <option value="sucesso">✅ Destaque</option>
+            <option value="geral">📢 Geral</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Destinatário</label>
+          <select class="form-control form-select" id="aviso-turma">
+            <option value="">Toda a escola</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensagem *</label>
+        <textarea class="form-control" id="aviso-corpo" rows="4" placeholder="Escreva o conteúdo do comunicado..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-aviso')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAviso()"><i class="fa-solid fa-paper-plane"></i> Publicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Aluno (Criar/Editar) -->
+<div class="modal-overlay" id="modal-aluno">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-user-graduate" style="color:var(--secondary);margin-right:8px"></i><span id="aluno-modal-title">Novo Aluno</span></div>
+      <button class="modal-close" onclick="closeModal('modal-aluno')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="aluno-id">
+      <div class="form-group">
+        <label class="form-label">Nome Completo *</label>
+        <input type="text" class="form-control" id="aluno-nome" placeholder="Nome do aluno">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Matrícula *</label>
+          <input type="text" class="form-control" id="aluno-matricula" placeholder="Ex: 2026013" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label class="form-label">CPF</label>
+          <input type="text" class="form-control" id="aluno-cpf" placeholder="000.000.000-00" maxlength="14">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turma *</label>
+        <select class="form-control form-select" id="aluno-turma-select"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-aluno')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAluno()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Professor (Criar/Editar) -->
+<div class="modal-overlay" id="modal-professor">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-chalkboard-user" style="color:var(--secondary);margin-right:8px"></i><span id="prof-modal-title">Novo Professor</span></div>
+      <button class="modal-close" onclick="closeModal('modal-professor')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="prof-modal-id">
+      <div class="form-group">
+        <label class="form-label">Nome Completo *</label>
+        <input type="text" class="form-control" id="prof-modal-nome" placeholder="Nome do professor">
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" class="form-control" id="prof-modal-email" placeholder="professor@escola.edu">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turmas (Ctrl + clique para múltiplas)</label>
+        <select class="form-control" id="prof-modal-turmas" multiple style="height:120px"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-professor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProfessor()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Turma (Criar/Editar) -->
+<div class="modal-overlay" id="modal-turma">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-chalkboard" style="color:var(--secondary);margin-right:8px"></i><span id="turma-modal-title">Nova Turma</span></div>
+      <button class="modal-close" onclick="closeModal('modal-turma')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="turma-id">
+      <div class="form-group">
+        <label class="form-label">Nome da Turma *</label>
+        <input type="text" class="form-control" id="turma-nome" placeholder="Ex: 6º Ano A">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turno *</label>
+        <select class="form-control form-select" id="turma-turno">
+          <option value="manhã">🌅 Manhã</option>
+          <option value="tarde">☀️ Tarde</option>
+          <option value="noite">🌙 Noite</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Professor Responsável</label>
+        <select class="form-control form-select" id="turma-professor">
+          <option value="">Sem professor</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-turma')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTurma()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmação -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box sm">
+    <div class="modal-header" style="border-bottom:none;padding-bottom:8px">
+      <div class="modal-title" style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;background:var(--danger-light);border-radius:var(--r-full);display:flex;align-items:center;justify-content:center;color:var(--danger);flex-shrink:0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        Confirmar Ação
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-confirm')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="padding-top:8px">
+      <p id="confirm-msg" style="color:var(--text-secondary);font-size:.9rem;line-height:1.6"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Cancelar</button>
+      <button class="btn btn-danger" onclick="execConfirm()"><i class="fa-solid fa-trash-can"></i> Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Horário de Aula -->
+<div class="modal-overlay" id="modal-horario">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-clock" style="color:var(--secondary);margin-right:8px"></i><span id="horario-modal-title">Novo Horário de Aula</span></div>
+      <button class="modal-close" onclick="closeModal('modal-horario')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="horario-id">
+      <div class="form-group">
+        <label class="form-label">Professor *</label>
+        <select class="form-control form-select" id="horario-professor"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Disciplina *</label>
+          <select class="form-control form-select" id="horario-disciplina"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Turma *</label>
+          <select class="form-control form-select" id="horario-turma"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input type="date" class="form-control" id="horario-data">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantidade de Aulas *</label>
+          <input type="number" class="form-control" id="horario-qtd" value="1" min="1" max="6">
+          <p class="form-hint">Ex: 2 = conta como 2 presenças/faltas na frequência</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-horario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveHorario()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Slot da Grade Horária -->
+<div class="modal-overlay" id="modal-grade-slot">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-calendar-week" style="color:var(--secondary);margin-right:8px"></i><span id="grade-slot-modal-title">Adicionar Aula à Grade</span></div>
+      <button class="modal-close" onclick="closeModal('modal-grade-slot')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="grade-slot-id">
+      <div class="form-group">
+        <label class="form-label">Turma *</label>
+        <select class="form-control form-select" id="grade-slot-turma"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Dia da Semana *</label>
+          <select class="form-control form-select" id="grade-slot-dia">
+            <option value="1">Segunda-feira</option>
+            <option value="2">Terça-feira</option>
+            <option value="3">Quarta-feira</option>
+            <option value="4">Quinta-feira</option>
+            <option value="5">Sexta-feira</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qtd. de Aulas *</label>
+          <input type="number" class="form-control" id="grade-slot-qtd" value="1" min="1" max="3">
+          <p class="form-hint">Ex: 2 = aula geminada (dupla)</p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Disciplina *</label>
+        <select class="form-control form-select" id="grade-slot-disc"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Professor *</label>
+        <select class="form-control form-select" id="grade-slot-prof"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-grade-slot')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveGradeSlot()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Evento do Calendário -->
+<div class="modal-overlay" id="modal-evento">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-calendar-plus" style="color:var(--secondary);margin-right:8px"></i><span id="evento-modal-title">Novo Evento</span></div>
+      <button class="modal-close" onclick="closeModal('modal-evento')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="evento-id">
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="evento-titulo" placeholder="Ex: Reunião de Pais">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input type="date" class="form-control" id="evento-data">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control form-select" id="evento-tipo">
+            <option value="academico">📚 Acadêmico</option>
+            <option value="prova">📝 Prova</option>
+            <option value="reuniao">🤝 Reunião</option>
+            <option value="evento">🎉 Evento</option>
+            <option value="feriado">🏖️ Feriado</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cor</label>
+        <input type="color" class="form-control" id="evento-cor" value="#2563eb" style="height:40px;padding:4px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-control" id="evento-desc" rows="2" placeholder="Detalhes do evento..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-evento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEvento()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Depoimento -->
+<div class="modal-overlay" id="modal-depoimento">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-quote-left" style="color:var(--secondary);margin-right:8px"></i><span id="depoimento-modal-title">Novo Depoimento</span></div>
+      <button class="modal-close" onclick="closeModal('modal-depoimento')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="dep-id">
+      <div class="form-group">
+        <label class="form-label">Texto do Depoimento *</label>
+        <textarea class="form-control" id="dep-texto" rows="3" placeholder="O que a pessoa disse sobre a escola..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input type="text" class="form-control" id="dep-nome" placeholder="Ex: Maria Silva">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cargo / Papel *</label>
+          <input type="text" class="form-control" id="dep-cargo" placeholder="Ex: Mãe de Aluno · 7º Ano A">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cor 1 (gradiente)</label>
+          <input type="color" class="form-control" id="dep-cor1" value="#059669" style="height:40px;padding:4px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor 2 (gradiente)</label>
+          <input type="color" class="form-control" id="dep-cor2" value="#10b981" style="height:40px;padding:4px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-depoimento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveDepoimento()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Galeria -->
+<div class="modal-overlay" id="modal-galeria">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-camera" style="color:var(--secondary);margin-right:8px"></i><span id="galeria-modal-title">Novo Item da Galeria</span></div>
+      <button class="modal-close" onclick="closeModal('modal-galeria')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="gal-id">
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="gal-titulo" placeholder="Ex: Sala de Aula">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ícone FontAwesome *</label>
+        <input type="text" class="form-control" id="gal-icone" placeholder="Ex: fa-chalkboard-user">
+        <p class="form-hint">Use nomes do Font Awesome 6 (sem "fa-solid")</p>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cor Fundo 1</label>
+          <input type="color" class="form-control" id="gal-cor1" value="#dbeafe" style="height:40px;padding:4px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor Fundo 2</label>
+          <input type="color" class="form-control" id="gal-cor2" value="#bfdbfe" style="height:40px;padding:4px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor Ícone</label>
+          <input type="color" class="form-control" id="gal-cor-icone" value="#2563eb" style="height:40px;padding:4px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-galeria')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveGaleria()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Equipe -->
+<div class="modal-overlay" id="modal-equipe">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-users" style="color:var(--secondary);margin-right:8px"></i><span id="equipe-modal-title">Novo Membro</span></div>
+      <button class="modal-close" onclick="closeModal('modal-equipe')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eqp-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input type="text" class="form-control" id="eqp-nome" placeholder="Ex: Mariana Costa">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cargo *</label>
+          <input type="text" class="form-control" id="eqp-cargo" placeholder="Ex: Diretora">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-control" id="eqp-descricao" rows="2" placeholder="Breve descrição do profissional..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ícone FontAwesome</label>
+        <input type="text" class="form-control" id="eqp-icone" placeholder="Ex: fa-crown">
+        <p class="form-hint">Use nomes do Font Awesome 6 (sem "fa-solid")</p>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cor 1 (gradiente)</label>
+          <input type="color" class="form-control" id="eqp-cor1" value="#2563eb" style="height:40px;padding:4px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor 2 (gradiente)</label>
+          <input type="color" class="form-control" id="eqp-cor2" value="#3b82f6" style="height:40px;padding:4px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-equipe')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEquipe()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Repasse Financeiro -->
+<div class="modal-overlay" id="modal-repasse">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-money-bill-wave" style="color:#059669;margin-right:8px"></i><span id="repasse-modal-title">Novo Repasse</span></div>
+      <button class="modal-close" onclick="closeModal('modal-repasse')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="repasse-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <select class="form-control form-select" id="repasse-tipo">
+            <option value="PDDE">PDDE</option>
+            <option value="PNAE">PNAE (Merenda)</option>
+            <option value="Manutenção">Manutenção</option>
+            <option value="Material">Material Didático</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$) *</label>
+          <input type="number" class="form-control" id="repasse-valor" placeholder="0.00" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input type="date" class="form-control" id="repasse-data">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control form-select" id="repasse-status">
+            <option value="pendente">⏳ Pendente</option>
+            <option value="recebido">✅ Recebido</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-control" id="repasse-descricao" rows="2" placeholder="Detalhes do repasse..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-repasse')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRepasse()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Item de Merenda -->
+<div class="modal-overlay" id="modal-merenda">
+  <div class="modal-box sm">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-utensils" style="color:#d97706;margin-right:8px"></i><span id="merenda-modal-title">Novo Item de Merenda</span></div>
+      <button class="modal-close" onclick="closeModal('modal-merenda')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="merenda-id">
+      <div class="form-group">
+        <label class="form-label">Item *</label>
+        <input type="text" class="form-control" id="merenda-item" placeholder="Ex: Arroz (5kg)">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quantidade *</label>
+          <input type="number" class="form-control" id="merenda-quantidade" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unidade</label>
+          <select class="form-control form-select" id="merenda-unidade">
+            <option value="pacote">Pacote</option>
+            <option value="caixa">Caixa</option>
+            <option value="garrafa">Garrafa</option>
+            <option value="lata">Lata</option>
+            <option value="kg">Kg</option>
+            <option value="litro">Litro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Estoque Mínimo</label>
+          <input type="number" class="form-control" id="merenda-minimo" min="0">
+          <p class="form-hint">Alerta quando abaixo desse valor</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Última Entrada</label>
+          <input type="date" class="form-control" id="merenda-entrada">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fornecedor</label>
+        <input type="text" class="form-control" id="merenda-fornecedor" placeholder="Ex: Dist. São Luís">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-merenda')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMerenda()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Circular/Ofício -->
+<div class="modal-overlay" id="modal-circular">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-scroll" style="color:#991b1b;margin-right:8px"></i><span id="circular-modal-title">Nova Circular</span></div>
+      <button class="modal-close" onclick="closeModal('modal-circular')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="circular-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Número *</label>
+          <input type="text" class="form-control" id="circular-numero" placeholder="SEMED/2026/004">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <select class="form-control form-select" id="circular-tipo">
+            <option value="resolucao">📜 Resolução</option>
+            <option value="portaria">📋 Portaria</option>
+            <option value="oficio">📄 Ofício</option>
+            <option value="circular">📢 Circular</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="circular-titulo" placeholder="Título da resolução ou ofício">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Conteúdo *</label>
+        <textarea class="form-control" id="circular-corpo" rows="5" placeholder="Texto completo da circular, resolução ou ofício..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data de Publicação</label>
+          <input type="date" class="form-control" id="circular-data">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo para Confirmação</label>
+          <input type="date" class="form-control" id="circular-prazo">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-circular')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCircular()"><i class="fa-solid fa-paper-plane"></i> Publicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cadastro de Escola -->
+<div class="modal-overlay" id="modal-escola">
+  <div class="modal-box lg">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-school" style="color:#991b1b;margin-right:8px"></i><span id="escola-modal-title">Nova Escola</span></div>
+      <button class="modal-close" onclick="closeModal('modal-escola')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="escola-id">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Nome Completo *</label>
+          <input type="text" class="form-control" id="escola-nome" placeholder="U.E. Professora Maria da Silva">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slug (URL) *</label>
+          <input type="text" class="form-control" id="escola-slug" placeholder="uemariasilva" style="font-family:monospace">
+          <p class="form-hint">Identificador único, sem espaços</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome Abreviado</label>
+          <input type="text" class="form-control" id="escola-abreviado" placeholder="U.E. Maria da Silva">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Código INEP</label>
+          <input type="text" class="form-control" id="escola-inep" placeholder="21045780">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Endereço</label>
+        <input type="text" class="form-control" id="escola-endereco" placeholder="Rua Principal, 100 - Centro">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cidade</label>
+          <input type="text" class="form-control" id="escola-cidade" value="Viana">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estado</label>
+          <input type="text" class="form-control" id="escola-estado" value="MA" maxlength="2">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Telefone</label>
+          <input type="text" class="form-control" id="escola-telefone" placeholder="(98) 99999-9999">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="escola-email" placeholder="contato@escola.edu.br">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Diretor(a) Responsável</label>
+          <input type="text" class="form-control" id="escola-diretor" placeholder="Nome do(a) diretor(a)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <select class="form-control form-select" id="escola-tipo">
+            <option value="urbana">🏙️ Urbana</option>
+            <option value="rural">🌾 Rural</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Modalidades</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-mod-fi" value="fundamental_i" checked> Fund. I (1º-5º)</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-mod-fii" value="fundamental_ii"> Fund. II (6º-9º)</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-mod-eja" value="eja"> EJA</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-mod-ei" value="educacao_infantil"> Ed. Infantil</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Turnos de Funcionamento</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-turno-m" value="manhã" checked> Manhã</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-turno-t" value="tarde" checked> Tarde</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="escola-turno-n" value="noite"> Noite</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Capacidade (alunos)</label>
+          <input type="number" class="form-control" id="escola-capacidade" min="0" placeholder="500">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-escola')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEscola()"><i class="fa-solid fa-floppy-disk"></i> Salvar Escola</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SCRIPTS ════════ -->
+<script src="js/firebase-config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/semed.js"></script>
+</body>
+</html>

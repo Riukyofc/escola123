@@ -1,0 +1,37 @@
+{
+  "name": "Portal Escolar — Edith Nair",
+  "short_name": "Portal Escolar",
+  "description": "Portal oficial da U.E. Professora Edith Nair Furtado da Silva — SEMED Viana/MA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f2347",
+  "theme_color": "#0f2347",
+  "orientation": "portrait-primary",
+  "categories": ["education"],
+  "lang": "pt-BR",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/img/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Acessar Dashboard",
+      "short_name": "Dashboard",
+      "description": "Acessar o painel do portal escolar",
+      "url": "/dashboard/login",
+      "icons": [{ "src": "/img/favicon.png", "sizes": "192x192" }]
+    }
+  ]
+}

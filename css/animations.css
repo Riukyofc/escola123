@@ -1,0 +1,273 @@
+/* ================================================================
+   ANIMATIONS — Portal Escolar
+   Premium micro-interactions & transitions
+   ================================================================ */
+
+/* ── Keyframes base ────────────────────────────────────────── */
+@keyframes fadeIn       { from { opacity:0; }                        to { opacity:1; } }
+@keyframes fadeInUp     { from { opacity:0; transform:translateY(16px);} to { opacity:1; transform:none; } }
+@keyframes fadeInDown   { from { opacity:0; transform:translateY(-16px);}to { opacity:1; transform:none; } }
+@keyframes fadeInLeft   { from { opacity:0; transform:translateX(-20px);}to { opacity:1; transform:none; } }
+@keyframes fadeInRight  { from { opacity:0; transform:translateX(20px); }to { opacity:1; transform:none; } }
+@keyframes scaleIn      { from { opacity:0; transform:scale(0.88); }  to { opacity:1; transform:scale(1); } }
+@keyframes scaleInSpring{ from { opacity:0; transform:scale(0.94); }  to { opacity:1; transform:scale(1); } }
+@keyframes slideInRight { from { transform:translateX(100%); }         to { transform:none; } }
+@keyframes slideInUp    { from { transform:translateY(100%); }         to { transform:none; } }
+@keyframes bounceIn {
+  0%   { opacity:0; transform:scale(0.3); }
+  50%  { opacity:1; transform:scale(1.05); }
+  70%  { transform:scale(0.9); }
+  100% { transform:scale(1); }
+}
+
+/* ── Float animation (for decorative elements) ─────────────── */
+@keyframes float {
+  0%, 100% { transform:translateY(0); }
+  50%       { transform:translateY(-12px); }
+}
+@keyframes floatSlow {
+  0%, 100% { transform:translateY(0) rotate(0deg); }
+  33%       { transform:translateY(-8px) rotate(1deg); }
+  66%       { transform:translateY(-4px) rotate(-1deg); }
+}
+
+/* ── Pulse animations ──────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity:1; transform:scale(1); }
+  50%       { opacity:0.7; transform:scale(0.97); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow:0 0 0 0 rgba(37,99,235,0.4); }
+  50%       { box-shadow:0 0 0 12px rgba(37,99,235,0); }
+}
+@keyframes pulseAccent {
+  0%, 100% { box-shadow:0 0 0 0 rgba(245,158,11,0.4); }
+  50%       { box-shadow:0 0 0 10px rgba(245,158,11,0); }
+}
+
+/* ── Spin ──────────────────────────────────────────────────── */
+@keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes spinSlow { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+/* ── Counter ───────────────────────────────────────────────── */
+@keyframes countUp {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── Progress bar grow ─────────────────────────────────────── */
+@keyframes progressGrow {
+  from { width:0; }
+}
+
+/* ── Shake (for error) ─────────────────────────────────────── */
+@keyframes shake {
+  0%, 100% { transform:translateX(0); }
+  20%       { transform:translateX(-6px); }
+  40%       { transform:translateX(6px); }
+  60%       { transform:translateX(-4px); }
+  80%       { transform:translateX(4px); }
+}
+
+/* ── Ripple ────────────────────────────────────────────────── */
+@keyframes ripple {
+  to { transform:scale(4); opacity:0; }
+}
+
+/* ── Gradient shift ────────────────────────────────────────── */
+@keyframes gradientShift {
+  0%   { background-position:0% 50%; }
+  50%  { background-position:100% 50%; }
+  100% { background-position:0% 50%; }
+}
+
+/* ── Glow pulse ────────────────────────────────────────────── */
+@keyframes glowPulse {
+  0%, 100% { filter:brightness(1) drop-shadow(0 0 0 transparent); }
+  50%       { filter:brightness(1.1) drop-shadow(0 0 12px rgba(245,158,11,0.4)); }
+}
+
+/* ================================================================
+   APPLIED ANIMATIONS
+   ================================================================ */
+
+/* ── Login card ────────────────────────────────────────────── */
+.login-card { animation:fadeInUp 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* ── Floating shapes in hero ───────────────────────────────── */
+.hero-orb-1 { animation:floatSlow 8s ease-in-out infinite; }
+.hero-orb-2 { animation:floatSlow 10s ease-in-out infinite reverse; }
+.hero-orb-3 { animation:floatSlow 6s ease-in-out infinite 2s; }
+
+/* ── Hero text entrance ────────────────────────────────────── */
+.hero-text-block .hero-tag   { animation:fadeInUp 0.5s ease 0.1s both; }
+.hero-text-block .hero-title { animation:fadeInUp 0.5s ease 0.2s both; }
+.hero-text-block .hero-desc  { animation:fadeInUp 0.5s ease 0.3s both; }
+.hero-text-block .hero-stats { animation:fadeInUp 0.5s ease 0.4s both; }
+.hero-text-block .hero-actions{ animation:fadeInUp 0.5s ease 0.5s both; }
+.hero-login-card { animation:fadeInLeft 0.6s cubic-bezier(0.34,1.4,0.64,1) 0.3s both; }
+
+/* ── Section chips & titles ────────────────────────────────── */
+.section-chip  { animation:fadeInUp 0.4s ease both; }
+.section-title { animation:fadeInUp 0.4s ease 0.1s both; }
+
+/* ── Card stagger entrance ─────────────────────────────────── */
+.card-enter { animation:fadeInUp 0.4s ease both; }
+.card-enter-1 { animation-delay:0.05s; }
+.card-enter-2 { animation-delay:0.10s; }
+.card-enter-3 { animation-delay:0.15s; }
+.card-enter-4 { animation-delay:0.20s; }
+.card-enter-5 { animation-delay:0.25s; }
+.card-enter-6 { animation-delay:0.30s; }
+
+/* ── Stat cards entrance ───────────────────────────────────── */
+.stat-card { animation:fadeInUp 0.4s ease both; }
+.stat-card:nth-child(1) { animation-delay:0.05s; }
+.stat-card:nth-child(2) { animation-delay:0.10s; }
+.stat-card:nth-child(3) { animation-delay:0.15s; }
+.stat-card:nth-child(4) { animation-delay:0.20s; }
+.stat-card:nth-child(5) { animation-delay:0.25s; }
+
+/* ── Dashboard page appear ─────────────────────────────────── */
+.dash-page.active { animation:fadeInUp 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* ── Sidebar links hover ───────────────────────────────────── */
+.sidebar-link { transition:background 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+.sidebar-link:hover { transform:translateX(3px); }
+.sidebar-link.active { transform:none; }
+
+/* ── Feature cards hover ───────────────────────────────────── */
+.feature-card { transition:transform 0.25s cubic-bezier(0.34,1.28,0.64,1), box-shadow 0.25s ease; }
+.feature-card:hover { transform:translateY(-6px) scale(1.01); }
+
+/* ── Aviso cards hover ─────────────────────────────────────── */
+.aviso-card { transition:transform 0.25s ease, box-shadow 0.25s ease; }
+.aviso-card:hover { transform:translateY(-5px); }
+
+/* ── Stat cards hover ──────────────────────────────────────── */
+.stat-card { transition:transform 0.25s cubic-bezier(0.34,1.28,0.64,1), box-shadow 0.25s ease; }
+.stat-card:hover { transform:translateY(-4px) scale(1.01); }
+
+/* ── Button press feedback ─────────────────────────────────── */
+.btn { transition:transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease; }
+.btn:active { transform:scale(0.97) !important; }
+
+/* ── Role button selection ─────────────────────────────────── */
+.role-btn { transition:all 0.2s cubic-bezier(0.34,1.28,0.64,1); }
+
+/* ── Progress bars ─────────────────────────────────────────── */
+.nota-bar-fill { animation:progressGrow 1.2s cubic-bezier(0.22,1,0.36,1) both; }
+.nota-bar-fill:nth-child(1) { animation-delay:0.1s; }
+.nota-bar-fill:nth-child(2) { animation-delay:0.2s; }
+
+/* ── Welcome banner ────────────────────────────────────────── */
+.welcome-banner { animation:fadeInUp 0.45s ease both; }
+
+/* ── Nota progress rows ────────────────────────────────────── */
+.nota-progress-row { animation:fadeInLeft 0.35s ease both; }
+.nota-progress-row:nth-child(1) { animation-delay:0.04s; }
+.nota-progress-row:nth-child(2) { animation-delay:0.08s; }
+.nota-progress-row:nth-child(3) { animation-delay:0.12s; }
+.nota-progress-row:nth-child(4) { animation-delay:0.16s; }
+.nota-progress-row:nth-child(5) { animation-delay:0.20s; }
+.nota-progress-row:nth-child(6) { animation-delay:0.24s; }
+.nota-progress-row:nth-child(7) { animation-delay:0.28s; }
+.nota-progress-row:nth-child(8) { animation-delay:0.32s; }
+
+/* ── AEE cards ─────────────────────────────────────────────── */
+.aee-card { animation:scaleIn 0.3s ease both; }
+.aee-card:nth-child(1) { animation-delay:0.05s; }
+.aee-card:nth-child(2) { animation-delay:0.10s; }
+.aee-card:nth-child(3) { animation-delay:0.15s; }
+
+/* ── Aluno list items ──────────────────────────────────────── */
+.aluno-list-item { animation:fadeInLeft 0.3s ease both; transition:border-color 0.15s ease, box-shadow 0.15s ease; }
+.aluno-list-item:nth-child(1) { animation-delay:0.03s; }
+.aluno-list-item:nth-child(2) { animation-delay:0.06s; }
+.aluno-list-item:nth-child(3) { animation-delay:0.09s; }
+.aluno-list-item:nth-child(4) { animation-delay:0.12s; }
+.aluno-list-item:nth-child(5) { animation-delay:0.15s; }
+.aluno-list-item:nth-child(n+6) { animation-delay:0.18s; }
+
+/* ── Ativ cards ────────────────────────────────────────────── */
+.ativ-card { animation:fadeInUp 0.3s ease both; }
+
+/* ── AVI items ─────────────────────────────────────────────── */
+.dash-aviso-item { animation:fadeInUp 0.3s ease both; }
+.dash-aviso-item:nth-child(1) { animation-delay:0.04s; }
+.dash-aviso-item:nth-child(2) { animation-delay:0.08s; }
+.dash-aviso-item:nth-child(3) { animation-delay:0.12s; }
+.dash-aviso-item:nth-child(n+4) { animation-delay:0.14s; }
+
+/* ── Modal entrance ────────────────────────────────────────── */
+.modal-overlay.open .modal-box { animation:scaleInSpring 0.28s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* ── Toast entrance/exit ───────────────────────────────────── */
+.toast     { animation:slideInRight 0.3s cubic-bezier(0.34,1.28,0.64,1) both; }
+.toast.removing { animation:fadeIn 0.3s ease reverse both; }
+
+/* ── Error shake ───────────────────────────────────────────── */
+.shake-anim { animation:shake 0.4s ease; }
+
+/* ── Spinning loader ───────────────────────────────────────── */
+.spin { animation:spin 0.8s linear infinite; }
+.spin-slow { animation:spinSlow 3s linear infinite; }
+
+/* ── Pulse glow for status dot ─────────────────────────────── */
+.pulse-glow { animation:pulseGlow 2s ease infinite; }
+
+/* ── Number counter micro anim ─────────────────────────────── */
+.count-anim { animation:countUp 0.5s ease both; }
+
+/* ── Bottom nav active item ────────────────────────────────── */
+.bnav-item { transition:color 0.15s ease; }
+.bnav-item.active i { animation:scaleIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* ── Highlight bimestre atual ──────────────────────────────── */
+@keyframes highlightPulse {
+  0%, 100% { box-shadow:none; }
+  50%       { box-shadow:0 0 0 3px rgba(37,99,235,0.25); }
+}
+.bim-header-active { animation:highlightPulse 2.5s ease infinite; }
+
+/* ── Gradient animated background (hero tag, etc) ─────────── */
+.gradient-anim {
+  background-size:200% 200%;
+  animation:gradientShift 4s ease infinite;
+}
+
+/* ── Floating badge ────────────────────────────────────────── */
+.float-anim { animation:float 4s ease-in-out infinite; }
+
+/* ── Logo icon glow ────────────────────────────────────────── */
+.sidebar-logo-icon { animation:glowPulse 4s ease-in-out infinite; }
+
+/* ── Table row hover ───────────────────────────────────────── */
+.data-table tbody tr { transition:background 0.12s ease; }
+
+/* ── Panel card ────────────────────────────────────────────── */
+.panel-card { animation:fadeInUp 0.35s ease both; }
+
+/* ── Frequency row appearance ──────────────────────────────── */
+.freq-aluno-row { animation:fadeInLeft 0.3s ease both; }
+.freq-aluno-row:nth-child(1) { animation-delay:0.04s; }
+.freq-aluno-row:nth-child(2) { animation-delay:0.08s; }
+.freq-aluno-row:nth-child(3) { animation-delay:0.12s; }
+.freq-aluno-row:nth-child(n+4) { animation-delay:0.15s; }
+
+/* ── fadeInDown (for mobile menu) ─────────────────────────── */
+@keyframes fadeInDown {
+  from { opacity:0; transform:translateY(-12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── Accessible: reduce motion ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+  }
+}

@@ -1,0 +1,160 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: Get user roles ──
+    function getUserRoles() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
+    }
+
+    function isRole(role) {
+      return request.auth != null && role in getUserRoles();
+    }
+
+    function isAnyRole(roles) {
+      return request.auth != null && getUserRoles().hasAny(roles);
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ── Escola info: read for all (public), write for diretor only ──
+    match /escola/{doc} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Config: read for authenticated, write for diretor only ──
+    match /config/{doc} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Users: each user reads their own, diretor can read/write all ──
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if request.auth.uid == uid || isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Alunos: read for all (CPF check during registration), write for diretor ──
+    match /alunos/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Professores: read for authenticated, write for diretor ──
+    match /professores/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Turmas: read for authenticated, write for diretor ──
+    match /turmas/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Disciplinas: read for authenticated, write for diretor ──
+    match /disciplinas/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Notas: read for authenticated, write for professor + diretor ──
+    match /notas/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── Frequencia: read for authenticated, write for professor + diretor ──
+    match /frequencia/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── Diario: read for authenticated, write for professor + diretor ──
+    match /diario/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── Atividades: read for authenticated, write for professor + diretor ──
+    match /atividades/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── AEE: read for authenticated, write for professor + diretor ──
+    match /aee/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── Avisos: read for all (public), write for professor + diretor ──
+    match /avisos/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
+    // ── SEMED: Repasses Financeiros — secretaria + diretor only ──
+    match /repasses_financeiros/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── SEMED: Estoque de Merenda — secretaria + diretor only ──
+    match /estoque_merenda/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── SEMED: Circulares — read for diretor + secretaria, write for secretaria ──
+    match /circulares/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── SEMED: Histórico IDEB — read for all authenticated, write for secretaria ──
+    match /ideb_historico/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── SEMED: Consumo de Merenda ──
+    match /consumo_merenda/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── SEMED: Escolas da Rede ──
+    match /escolas_rede/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── Direção: Horários, Galeria, Equipe, Depoimentos (public read) ──
+    match /horarios_aula/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+    match /galeria/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+    match /equipe/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+    match /depoimentos/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+    match /eventos_calendario/{id} {
+      allow read: if true;
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+  }
+}

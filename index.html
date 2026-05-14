@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>U.E. Professora Edith Nair Furtado da Silva — Portal Escolar</title>
+  <meta name="description" content="Portal oficial da Unidade Escolar Professora Edith Nair Furtado da Silva. Acesse avisos, informações institucionais e o sistema escolar.">
+  <meta name="theme-color" content="#0f2347">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/favicon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="U.E. Professora Edith Nair — Portal Escolar">
+  <meta property="og:description" content="Acesse notas, frequência, avisos e muito mais no portal oficial da escola.">
+  <meta property="og:image" content="img/educational_hero_banner.png">
+  <meta property="og:type" content="website">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/animations.css?v=3">
+
+  <!-- Firebase CDN (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- Skip to content (a11y) -->
+<a href="#pub-hero" class="skip-link">Pular para o conteúdo</a>
+
+<!-- ════════════ HEADER ════════════ -->
+<header id="pub-header">
+  <div class="pub-header-inner">
+    <div class="pub-logo">
+      <img src="img/logo.png" alt="Logo U.E. Edith Nair" class="pub-logo-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;">
+      <div class="pub-logo-text">
+        <div class="school-name">U.E. Professora Edith Nair</div>
+        <div class="school-sub">Furtado da Silva · Viana — MA</div>
+      </div>
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menu">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
+
+    <nav class="pub-nav" id="pubNav">
+      <button class="pub-nav-link" onclick="scrollToSection('pub-sobre'); closeMobileMenu()">Sobre</button>
+      <button class="pub-nav-link" onclick="scrollToSection('pub-avisos'); closeMobileMenu()">Avisos</button>
+      <button class="pub-nav-link" onclick="scrollToSection('pub-features'); closeMobileMenu()">Recursos</button>
+      <button class="pub-nav-link" onclick="scrollToSection('pub-footer'); closeMobileMenu()">Contato</button>
+      <button class="pub-nav-link dark-toggle" onclick="toggleDarkMode()" aria-label="Alternar modo escuro" title="Modo Escuro">
+        <i class="fa-solid fa-moon" id="darkModeIcon"></i>
+      </button>
+      <a href="https://instagram.com/profedithnair" target="_blank" class="pub-social-link" title="Instagram">
+        <i class="fa-brands fa-instagram"></i>
+      </a>
+      <a href="dashboard.html" class="pub-btn-login">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        Acessar Portal
+      </a>
+    </nav>
+  </div>
+</header>
+
+<!-- ════════════ HERO ════════════ -->
+<section id="pub-hero">
+  <canvas id="heroParticles"></canvas>
+  <div class="hero-orbs">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-orb hero-orb-3"></div>
+  </div>
+
+  <div class="hero-inner">
+    <div class="hero-carousel-block">
+      <div class="sr-only">
+        <h1>O Futuro do seu Filho está Aqui!</h1>
+        <p>Bem-vindo ao portal institucional da U.E. Professora Edith Nair Furtado da Silva.</p>
+      </div>
+
+      <div class="banner-carousel" id="heroCarousel">
+        <div class="carousel-track" id="carouselTrack">
+          <div class="carousel-slide">
+            <img src="img/educational_hero_banner.png" alt="Feito de alunos para alunos" class="carousel-img">
+            <div class="hero-overlay-bottom">
+              <div class="hero-overlay-logos">
+                <img src="img/logo1.png" alt="Logo Prefeitura" class="overlay-logo" width="80" height="80" loading="lazy">
+                <img src="img/logo2.png" alt="Logo Escola" class="overlay-logo" width="80" height="80" loading="lazy">
+              </div>
+              <a href="https://instagram.com/profedithnair" target="_blank" class="overlay-instagram">
+                <i class="fa-brands fa-instagram"></i>
+                Siga-nos no Instagram
+              </a>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <img src="img/banner-escola.png" alt="Unidade Escolar Professora Edith Nair" class="carousel-img">
+          </div>
+        </div>
+        <button class="carousel-btn prev-btn" onclick="moveCarousel(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="carousel-btn next-btn" onclick="moveCarousel(1)"><i class="fa-solid fa-chevron-right"></i></button>
+        <div class="carousel-dots" id="carouselDots">
+          <span class="dot active" onclick="goToSlide(0)"></span>
+          <span class="dot" onclick="goToSlide(1)"></span>
+        </div>
+      </div>
+
+      <div class="hero-bottom-info">
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-num" id="stat-turmas">—</span>
+            <span class="hero-stat-label">Turmas</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num" id="stat-alunos">—</span>
+            <span class="hero-stat-label">Alunos</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num" id="stat-profs">—</span>
+            <span class="hero-stat-label">Professores</span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <button class="btn-hero-ghost" onclick="scrollToSection('pub-avisos')">
+            <i class="fa-solid fa-bell"></i> Ver Avisos
+          </button>
+          <div class="hero-instagram">
+            <a href="https://instagram.com/profedithnair" target="_blank">
+              <i class="fa-brands fa-instagram"></i> @profedithnair
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Wave divider -->
+<div class="wave-divider">
+  <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <path d="M0 60L48 52C96 44 192 28 288 24C384 20 480 28 576 36C672 44 768 52 864 48C960 44 1056 28 1152 20C1248 12 1344 12 1392 12L1440 12V60H0Z" fill="#f0f4f8"/>
+  </svg>
+</div>
+
+<!-- ════════════ SOBRE ════════════ -->
+<section id="pub-sobre" class="pub-section" style="background: var(--bg); padding-top: 56px;">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip"><i class="fa-solid fa-school"></i> Nossa Escola</div>
+      <h2 class="section-title">Sobre a U.E. Professora Edith Nair</h2>
+      <p class="section-subtitle" id="desc-escola">
+        Uma escola comprometida com a excelência na educação, formando cidadãos críticos e preparados para o futuro.
+      </p>
+    </div>
+
+    <div class="features-grid" style="max-width: 900px; margin: 0 auto;">
+      <div class="feature-card reveal delay-100">
+        <div class="feature-icon" style="background: var(--info-light);"><i class="fa-solid fa-users" style="color:var(--secondary)"></i></div>
+        <div class="feature-title">Comunidade Unida</div>
+        <div class="feature-desc">Alunos, professores, pais e diretores trabalhando juntos para o crescimento de todos.</div>
+      </div>
+      <div class="feature-card reveal delay-200">
+        <div class="feature-icon" style="background: var(--success-light);"><i class="fa-solid fa-seedling" style="color:var(--success)"></i></div>
+        <div class="feature-title">Educação de Qualidade</div>
+        <div class="feature-desc">Ensino dedicado ao desenvolvimento integral dos nossos estudantes.</div>
+      </div>
+      <div class="feature-card reveal delay-300">
+        <div class="feature-icon" style="background: var(--warning-light);"><i class="fa-solid fa-star" style="color:var(--warning)"></i></div>
+        <div class="feature-title">Inclusão & Acessibilidade</div>
+        <div class="feature-desc">AEE — Atendimento Educacional Especializado para todos os que precisam.</div>
+      </div>
+      <div class="feature-card reveal delay-400">
+        <div class="feature-icon" style="background: var(--danger-light);"><i class="fa-solid fa-award" style="color:var(--danger)"></i></div>
+        <div class="feature-title">Gestão Transparente</div>
+        <div class="feature-desc">Notas, frequência e comunicados acessíveis para alunos e responsáveis.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ AVISOS PÚBLICOS ════════════ -->
+<section id="pub-avisos" class="pub-section" style="background: var(--surface);">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip" style="background:var(--danger-light); color:var(--danger)">
+        <i class="fa-solid fa-bell"></i> Comunicados
+      </div>
+      <h2 class="section-title">Avisos e Comunicados</h2>
+      <p class="section-subtitle">Fique por dentro de tudo que acontece na escola.</p>
+    </div>
+    <div class="avisos-grid" id="pub-avisos-grid">
+      <div class="shimmer" style="height:160px; border-radius:16px;"></div>
+      <div class="shimmer" style="height:160px; border-radius:16px;"></div>
+      <div class="shimmer" style="height:160px; border-radius:16px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ RECURSOS DO PORTAL ════════════ -->
+<section id="pub-features" class="pub-section" style="background: var(--bg);">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip"><i class="fa-solid fa-laptop-code"></i> Sistema</div>
+      <h2 class="section-title">O que você encontra no Portal</h2>
+      <p class="section-subtitle">Um sistema completo para toda a comunidade escolar.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal delay-100">
+        <div class="feature-icon" style="background:#dbeafe;"><i class="fa-solid fa-chart-bar" style="color:#2563eb"></i></div>
+        <div class="feature-title">Notas por Bimestre</div>
+        <div class="feature-desc">Acompanhe o desempenho em todos os bimestres e veja a nota anual calculada automaticamente.</div>
+      </div>
+      <div class="feature-card reveal delay-200">
+        <div class="feature-icon" style="background:#d1fae5;"><i class="fa-solid fa-calendar-check" style="color:#10b981"></i></div>
+        <div class="feature-title">Diário Digital</div>
+        <div class="feature-desc">Professores registram conteúdos, frequência e observações de forma organizada e segura.</div>
+      </div>
+      <div class="feature-card reveal delay-300">
+        <div class="feature-icon" style="background:#fce7f3;"><i class="fa-solid fa-heart-pulse" style="color:#ec4899"></i></div>
+        <div class="feature-title">AEE Integrado</div>
+        <div class="feature-desc">Planos de atendimento educacional especializado acessíveis diretamente no painel do professor.</div>
+      </div>
+      <div class="feature-card reveal delay-100">
+        <div class="feature-icon" style="background:#fef9c3;"><i class="fa-solid fa-crown" style="color:#d97706"></i></div>
+        <div class="feature-title">Painel do Diretor</div>
+        <div class="feature-desc">Gestão completa: alunos, professores, turmas, turnos e controle de lançamento de notas.</div>
+      </div>
+      <div class="feature-card reveal delay-200">
+        <div class="feature-icon" style="background:#ede9fe;"><i class="fa-solid fa-lock" style="color:#7c3aed"></i></div>
+        <div class="feature-title">Controle de Acesso</div>
+        <div class="feature-desc">O diretor pode fechar o sistema para impedir edições de notas ao final de cada bimestre.</div>
+      </div>
+      <div class="feature-card reveal delay-300">
+        <div class="feature-icon" style="background:#fee2e2;"><i class="fa-solid fa-bell" style="color:#ef4444"></i></div>
+        <div class="feature-title">Avisos em Tempo Real</div>
+        <div class="feature-desc">Comunicados da direção chegam imediatamente para professores, alunos e responsáveis.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ DEPOIMENTOS ════════════ -->
+<section id="pub-depoimentos" class="pub-section" style="background: var(--surface);">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip" style="background:var(--purple-light); color:var(--purple)">
+        <i class="fa-solid fa-quote-left"></i> Depoimentos
+      </div>
+      <h2 class="section-title">O que dizem sobre nós</h2>
+      <p class="section-subtitle">Vozes da nossa comunidade escolar.</p>
+    </div>
+    <div class="testimonials-track" id="testimonialsTrack">
+      <!-- Dynamic from Firestore -->
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ GALERIA DE FOTOS ════════════ -->
+<section id="pub-galeria" class="pub-section" style="background:var(--surface)">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip" style="background:#ede9fe;color:#7c3aed"><i class="fa-solid fa-camera"></i> Galeria</div>
+      <h2 class="section-title">Momentos da Nossa Escola</h2>
+      <p class="section-subtitle">Registros do dia a dia escolar, eventos e conquistas da comunidade.</p>
+    </div>
+    <div class="gallery-grid reveal" id="pub-gallery-grid">
+      <!-- Dynamic from Firestore -->
+    </div>
+  </div>
+</section>
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()"><i class="fa-solid fa-xmark"></i></button>
+  <div class="lightbox-content" id="lightbox-content"></div>
+</div>
+
+<!-- ════════════ NÚMEROS DE IMPACTO ════════════ -->
+<section id="pub-numeros" class="pub-section impact-section">
+  <div class="section-inner">
+    <div class="impact-grid reveal">
+      <div class="impact-item">
+        <div class="impact-num" id="impact-alunos">0</div>
+        <div class="impact-label">Alunos Matriculados</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-num" id="impact-turmas">0</div>
+        <div class="impact-label">Turmas Ativas</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-num" id="impact-profs">0</div>
+        <div class="impact-label">Professores</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-num" id="impact-discs">0</div>
+        <div class="impact-label">Disciplinas</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ NOSSA EQUIPE ════════════ -->
+<section id="pub-equipe" class="pub-section" style="background:var(--surface)">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip" style="background:#fef3c7;color:#d97706"><i class="fa-solid fa-users"></i> Equipe</div>
+      <h2 class="section-title">Nossa Comunidade Escolar</h2>
+      <p class="section-subtitle">Conheça os profissionais dedicados à formação de nossos alunos.</p>
+    </div>
+    <div class="team-grid" id="pub-team-grid">
+      <!-- Dynamic from Firestore -->
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ LOCALIZAÇÃO ════════════ -->
+<section id="pub-mapa" class="pub-section" style="background:var(--bg); padding-bottom:0;">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-chip" style="background:#d1fae5;color:#059669"><i class="fa-solid fa-map-location-dot"></i> Localização</div>
+      <h2 class="section-title">Como Chegar</h2>
+      <p class="section-subtitle">Viana, Maranhão — Brasil</p>
+    </div>
+    <div class="map-container reveal">
+      <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15932.5!2d-44.99!3d-2.77!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7f58f1f2f2f2f2f%3A0x0!2sViana%2C%20MA!5e0!3m2!1spt-BR!2sbr!4v1" width="100%" height="350" style="border:0;border-radius:16px" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa da escola"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ FOOTER ════════════ -->
+<footer id="pub-footer">
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="img/logo.png" alt="Logo" class="footer-logo-real" width="48" height="48" style="width:48px;height:48px;max-width:48px;">
+          <div class="footer-logo-name">U.E. Professora Edith Nair<br>Furtado da Silva</div>
+        </div>
+        <p class="footer-desc">Comprometida com a excelência na educação e com o desenvolvimento integral de nossos alunos.</p>
+        <div class="footer-social">
+          <a href="https://instagram.com/profedithnair" target="_blank" class="footer-social-link">
+            <i class="fa-brands fa-instagram"></i> @profedithnair
+          </a>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title">Acesso Rápido</div>
+        <div class="footer-links">
+          <a href="dashboard.html?role=aluno" class="footer-link">Portal do Aluno</a>
+          <a href="dashboard.html?role=professor" class="footer-link">Portal do Professor</a>
+          <a href="dashboard.html?role=diretor" class="footer-link">Portal do Diretor</a>
+          <button class="footer-link" onclick="scrollToSection('pub-avisos')">Avisos da Escola</button>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title">Contato</div>
+        <div class="footer-contact-item">
+          <i class="fa-solid fa-map-marker-alt"></i>
+          <span id="footer-cidade">Viana, Maranhão</span>
+        </div>
+        <div class="footer-contact-item">
+          <i class="fa-brands fa-whatsapp"></i>
+          <span id="footer-whatsapp">—</span>
+        </div>
+        <div class="footer-contact-item">
+          <i class="fa-solid fa-envelope"></i>
+          <span id="footer-email">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2026 U.E. Professora Edith Nair Furtado da Silva. Todos os direitos reservados.</span>
+      <span class="footer-copy">Desenvolvido para a Secretaria Municipal de Educação · Viana · MA</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ════════════ SCRIPTS ════════════ -->
+<script src="js/firebase-config.js"></script>
+<script src="js/data.js"></script>
+<script>
+  // ── Header scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('pub-header').classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // ── Smooth scroll
+  function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Mobile menu
+  function toggleMobileMenu() {
+    document.getElementById('hamburgerBtn').classList.toggle('active');
+    document.getElementById('pubNav').classList.toggle('mobile-open');
+  }
+  function closeMobileMenu() {
+    document.getElementById('hamburgerBtn').classList.remove('active');
+    document.getElementById('pubNav').classList.remove('mobile-open');
+  }
+
+  // ── Counter animation
+  function animateCounter(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let current = 0;
+    const step = Math.max(1, Math.ceil(target / 25));
+    const iv = setInterval(() => {
+      current = Math.min(current + step, target);
+      el.textContent = current;
+      if (current >= target) clearInterval(iv);
+    }, 40);
+  }
+
+  // ── Reveal on scroll
+  function initReveal() {
+    const obs = new IntersectionObserver((entries, o) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('active'); o.unobserve(e.target); }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal:not(.active)').forEach(el => obs.observe(el));
+  }
+
+  // ── Particles Canvas
+  function initParticles() {
+    const canvas = document.getElementById('heroParticles');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    const PARTICLE_COUNT = 60;
+
+    function resize() {
+      const hero = document.getElementById('pub-hero');
+      canvas.width = hero.offsetWidth;
+      canvas.height = hero.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 0.5,
+        dx: (Math.random() - 0.5) * 0.5,
+        dy: (Math.random() - 0.5) * 0.5,
+        opacity: Math.random() * 0.4 + 0.1
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p, i) => {
+        p.x += p.dx; p.y += p.dy;
+        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(251,191,36,${p.opacity})`;
+        ctx.fill();
+
+        // Connect nearby particles
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(37,99,235,${0.06 * (1 - dist / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      });
+      requestAnimationFrame(draw);
+    }
+    draw();
+  }
+
+  // ── Load avisos públicos
+  function loadAvisos() {
+    const avisos = dbGetAll('avisos').filter(a => a.ativo && !a.turmaId);
+    const grid = document.getElementById('pub-avisos-grid');
+    if (!grid) return;
+
+    if (!avisos.length) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-state-icon"><i class="fa-solid fa-bell-slash"></i></div>
+          <div class="empty-state-title">Nenhum aviso no momento</div>
+        </div>`;
+      return;
+    }
+
+    const tipoIcon = { info: 'fa-circle-info', urgente: 'fa-triangle-exclamation', sucesso: 'fa-circle-check', geral: 'fa-bullhorn' };
+    const tipoLabel = { info: 'Informativo', urgente: 'Urgente', sucesso: 'Destaque', geral: 'Geral' };
+
+    grid.innerHTML = avisos.map((av, i) => `
+      <div class="aviso-card ${av.tipo || 'geral'} reveal delay-${(i % 3 + 1) * 100}">
+        <span class="aviso-badge badge-${av.tipo || 'geral'}">
+          <i class="fa-solid ${tipoIcon[av.tipo] || 'fa-bullhorn'}"></i>
+          ${tipoLabel[av.tipo] || 'Geral'}
+        </span>
+        <div class="aviso-titulo">${av.titulo}</div>
+        <div class="aviso-corpo">${av.corpo}</div>
+        <div class="aviso-data">
+          <i class="fa-regular fa-calendar"></i>
+          ${formatDate(av.dataCriacao)}
+        </div>
+      </div>
+    `).join('');
+
+    initReveal();
+  }
+
+  // ── Load stats
+  function loadStats() {
+    const escola = dbGet('escola');
+    const turmas = dbGetAll('turmas').filter(t => t.ativo);
+    const alunos = dbGetAll('alunos').filter(a => a.ativo);
+    const profs  = dbGetAll('professores').filter(p => p.ativo);
+
+    animateCounter('stat-turmas', turmas.length);
+    animateCounter('stat-alunos', alunos.length);
+    animateCounter('stat-profs',  profs.length);
+
+    const fw = document.getElementById('footer-whatsapp');
+    const fe = document.getElementById('footer-email');
+    const fc = document.getElementById('footer-cidade');
+    if (fw) fw.textContent = escola.whatsapp || '—';
+    if (fe) fe.textContent = escola.email    || '—';
+    if (fc) fc.textContent = escola.cidade   || '—';
+  }
+
+  // ── Hero Carousel
+  let currentSlide = 0;
+  let carouselInterval;
+  
+  function updateCarousel() {
+    const track = document.getElementById('carouselTrack');
+    const dots = document.querySelectorAll('.carousel-dots .dot');
+    if (!track) return;
+    track.style.transform = `translateX(-${currentSlide * 100}%)`;
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentSlide);
+    });
+  }
+
+  function moveCarousel(direction) {
+    const slides = document.querySelectorAll('.carousel-slide');
+    if (!slides.length) return;
+    currentSlide = (currentSlide + direction + slides.length) % slides.length;
+    updateCarousel();
+    resetCarouselTimer();
+  }
+
+  function goToSlide(index) {
+    currentSlide = index;
+    updateCarousel();
+    resetCarouselTimer();
+  }
+
+  function resetCarouselTimer() {
+    clearInterval(carouselInterval);
+    carouselInterval = setInterval(() => moveCarousel(1), 5000);
+  }
+
+  // ── Dark Mode
+  function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDark);
+    document.getElementById('darkModeIcon').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+  }
+  function loadDarkMode() {
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+      document.getElementById('darkModeIcon').className = 'fa-solid fa-sun';
+    }
+  }
+
+  // ── Impact counters
+  function loadImpactCounters() {
+    const turmas = dbGetAll('turmas').filter(t => t.ativo);
+    const alunos = dbGetAll('alunos').filter(a => a.ativo);
+    const profs  = dbGetAll('professores').filter(p => p.ativo);
+    const discs  = dbGetAll('disciplinas').filter(d => d.ativo);
+    animateCounter('impact-alunos', alunos.length);
+    animateCounter('impact-turmas', turmas.length);
+    animateCounter('impact-profs',  profs.length);
+    animateCounter('impact-discs',  discs.length);
+  }
+
+  // ── Lightbox Gallery
+  function openLightbox(el) {
+    const lb = document.getElementById('lightbox');
+    const content = document.getElementById('lightbox-content');
+    content.innerHTML = el.querySelector('.gallery-placeholder').outerHTML;
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+  // ── Dynamic: Testimonials
+  function loadTestimonials() {
+    const track = document.getElementById('testimonialsTrack');
+    if (!track) return;
+    const items = dbGetAll('depoimentos').filter(d => d.ativo !== false).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    if (!items.length) { track.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i class="fa-solid fa-quote-left"></i></div><div class="empty-state-title">Nenhum depoimento</div></div>'; return; }
+    const delays = [100, 200, 300];
+    track.innerHTML = items.map((d, i) => `
+      <div class="testimonial-card reveal delay-${delays[i % 3]}">
+        <div class="testimonial-quote"><i class="fa-solid fa-quote-left"></i></div>
+        <p class="testimonial-text">${d.texto}</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:linear-gradient(135deg,${d.cor1},${d.cor2})">${d.nome.charAt(0)}</div>
+          <div>
+            <div class="testimonial-name">${d.nome}</div>
+            <div class="testimonial-role">${d.cargo}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    initReveal();
+  }
+
+  // ── Dynamic: Gallery
+  function loadGallery() {
+    const grid = document.getElementById('pub-gallery-grid');
+    if (!grid) return;
+    const items = dbGetAll('galeria').filter(g => g.ativo !== false).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    if (!items.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i class="fa-solid fa-camera"></i></div><div class="empty-state-title">Nenhuma foto</div></div>'; return; }
+    grid.innerHTML = items.map(g => `
+      <div class="gallery-item" onclick="openLightbox(this)">
+        <div class="gallery-placeholder" style="background:linear-gradient(135deg,${g.corFundo1},${g.corFundo2})">
+          <i class="fa-solid ${g.icone}" style="font-size:2.5rem;color:${g.corIcone}"></i>
+          <span>${g.titulo}</span>
+        </div>
+        <div class="gallery-overlay"><i class="fa-solid fa-expand"></i></div>
+      </div>
+    `).join('');
+    initReveal();
+  }
+
+  // ── Dynamic: Team
+  function loadTeam() {
+    const grid = document.getElementById('pub-team-grid');
+    if (!grid) return;
+    const items = dbGetAll('equipe').filter(e => e.ativo !== false).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    if (!items.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i class="fa-solid fa-users"></i></div><div class="empty-state-title">Nenhum membro</div></div>'; return; }
+    const delays = [100, 200, 300];
+    grid.innerHTML = items.map((e, i) => `
+      <div class="team-card reveal delay-${delays[i % 3]}">
+        <div class="team-avatar" style="background:linear-gradient(135deg,${e.cor1},${e.cor2})"><i class="fa-solid ${e.icone || 'fa-user'}"></i></div>
+        <div class="team-name">${e.nome}</div>
+        <div class="team-role">${e.cargo}</div>
+        <div class="team-desc">${e.descricao || ''}</div>
+      </div>
+    `).join('');
+    initReveal();
+  }
+
+  // ── Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // ── Init
+  document.addEventListener('DOMContentLoaded', async () => {
+    loadDarkMode();
+    initReveal();
+    initParticles();
+    resetCarouselTimer();
+    try {
+      await loadAllData();
+    } catch(e) { console.warn('Usando dados seed:', e); }
+    loadStats();
+    loadAvisos();
+    loadImpactCounters();
+    loadTestimonials();
+    loadGallery();
+    loadTeam();
+  });
+</script>
+
+<!-- Floating Portal CTA (mobile-friendly) -->
+<a href="dashboard.html" class="fab-portal" aria-label="Acessar Portal" title="Acessar Portal Escolar">
+  <i class="fa-solid fa-right-to-bracket"></i>
+  <span>Acessar Portal</span>
+</a>
+
+</body>
+</html>
