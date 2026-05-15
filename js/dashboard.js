@@ -57,6 +57,7 @@ const NAV = {
   ],
   secretaria: [
     { id: 'page-sec-inicio',      icon: 'fa-building-columns', label: 'Dashboard',       sub: 'Visão macro da educação' },
+    { id: 'page-sec-alunos',      icon: 'fa-user-graduate',    label: 'Alunos',          sub: 'Consulta e edição' },
     { id: 'page-sec-escolas',     icon: 'fa-school',           label: 'Escolas da Rede', sub: 'Cadastro e gestão' },
     { id: 'page-sec-financeiro',  icon: 'fa-money-bill-wave',  label: 'Financeiro',      sub: 'Repasses e merenda' },
     { id: 'page-sec-auditoria',   icon: 'fa-clipboard-check',  label: 'Auditoria',       sub: 'Censo e lotação' },
@@ -376,6 +377,7 @@ function initDashboard() {
   updateSystemStatus();
   updateUserInfo();
   updateBellBadge();
+  startTopbarClock();
 
   const firstPage = NAV[SESSION.role][0].id;
   showPage(firstPage);
@@ -564,6 +566,7 @@ function loadPageData(pageId) {
 
     // ── SEMED ──
     case 'page-sec-inicio':       loadSecInicio();      break;
+    case 'page-sec-alunos':       loadSecAlunos();      break;
     case 'page-sec-escolas':      loadSecEscolas();     break;
     case 'page-sec-financeiro':   loadSecFinanceiro();  break;
     case 'page-sec-auditoria':    loadSecAuditoria();   break;
@@ -1158,6 +1161,11 @@ function loadNotasTurma() {
   saveBar.style.display = closed ? 'none' : '';
   const btn = document.getElementById('btn-salvar-notas');
   if (btn) btn.disabled = closed;
+
+  // Highlight active bimestre column header
+  highlightActiveBimestre(bimestre);
+  // Update nota counters
+  updateNotaCounters();
 }
 
 function onNotaChange(input) {
@@ -1180,6 +1188,11 @@ function onNotaChange(input) {
   input.style.borderColor = '';
   salvarNota(alunoId, discId, bim, valor);
 
+  // Visual feedback — green flash
+  input.classList.remove('saved-flash');
+  void input.offsetWidth; // trigger reflow
+  input.classList.add('saved-flash');
+
   // Recalculate anual in same row
   const row = input.closest('tr');
   if (row) {
@@ -1193,6 +1206,9 @@ function onNotaChange(input) {
     if (cells[anualIdx]) cells[anualIdx].innerHTML = notaBadge(anual, cfg.notaMinima);
     if (cells[sitIdx])   cells[sitIdx].innerHTML   = situacaoBadge(anual, cfg.notaMinima);
   }
+
+  // Update counters
+  updateNotaCounters();
 }
 
 function saveTodasNotas() {
@@ -1344,6 +1360,17 @@ function setFreqBtn(btn, alunoId) {
   const row = btn.closest('.freq-aluno-row');
   row.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+}
+
+function freqSelectAll(status) {
+  const btns = document.querySelectorAll(`.freq-btn.${status}`);
+  btns.forEach(btn => {
+    const row = btn.closest('.freq-aluno-row');
+    row.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+  const labels = { presente: 'presentes', falta: 'com falta', justificado: 'justificados' };
+  toast(`Todos marcados como ${labels[status] || status}!`, 'success');
 }
 
 function saveFrequencia() {
@@ -1891,30 +1918,69 @@ function toggleSistema() {
 // =============================================================
 function loadDirAlunos() {
   const filtroTurma  = document.getElementById('dir-alunos-filtro-turma')?.value || '';
+  const filtroEscola = document.getElementById('dir-alunos-filtro-escola')?.value || '';
+  const filtroSerie  = document.getElementById('dir-alunos-filtro-serie')?.value || '';
   const search       = document.getElementById('dir-alunos-search')?.value.toLowerCase() || '';
   const tbody        = document.getElementById('dir-alunos-tbody');
   const turmas       = dbGetAll('turmas');
+  const escolas      = dbGetAll('escolas_rede');
 
-  // Fill turma filter
+  // Helper para obter a série da turma
+  const getSerie = (tNome) => {
+    const parts = tNome.split(' ');
+    return parts.length >= 2 ? parts[0] + ' ' + parts[1] : tNome;
+  };
+
+  // Fill filters (once)
+  const escolaSel = document.getElementById('dir-alunos-filtro-escola');
+  if (escolaSel && escolaSel.options.length <= 1) {
+    escolaSel.innerHTML = '<option value="">Todas as escolas</option>';
+    escolas.filter(e => e.ativa).forEach(e => {
+      escolaSel.innerHTML += `<option value="${esc(e.id)}">${esc(e.nomeAbreviado || e.nome)}</option>`;
+    });
+  }
+
+  const serieSel = document.getElementById('dir-alunos-filtro-serie');
+  if (serieSel && serieSel.options.length <= 1) {
+    serieSel.innerHTML = '<option value="">Todas as séries</option>';
+    const series = [...new Set(turmas.map(t => getSerie(t.nome)))].sort();
+    series.forEach(s => {
+      serieSel.innerHTML += `<option value="${esc(s)}">${esc(s)}</option>`;
+    });
+  }
+
   const filtroSel = document.getElementById('dir-alunos-filtro-turma');
   if (filtroSel && filtroSel.options.length <= 1) {
     filtroSel.innerHTML = '<option value="">Todas as turmas</option>';
     turmas.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.textContent = `${t.nome} (${t.turno})`;
-      filtroSel.appendChild(opt);
+      filtroSel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)} (${esc(t.turno)})</option>`;
     });
   }
 
   let alunos = dbGetAll('alunos').filter(a => a.ativo);
+  
+  if (filtroEscola) {
+    // Como a base atual não tem escolaId explícito na turma, vamos mapear implicitamente para a 1ª escola (Edith Nair) 
+    // ou filtrar caso as turmas passem a ter escolaId
+    const turmasEscolaIds = turmas.filter(t => t.escolaId === filtroEscola || (!t.escolaId && filtroEscola === 'esc01')).map(t => t.id);
+    alunos = alunos.filter(a => turmasEscolaIds.includes(a.turmaId) || (a.escolaId === filtroEscola));
+  }
+
+  if (filtroSerie) {
+    const turmasSerieIds = turmas.filter(t => getSerie(t.nome) === filtroSerie).map(t => t.id);
+    alunos = alunos.filter(a => turmasSerieIds.includes(a.turmaId));
+  }
+
   if (filtroTurma) alunos = alunos.filter(a => a.turmaId === filtroTurma);
   if (search)      alunos = alunos.filter(a =>
-    a.nome.toLowerCase().includes(search) || a.matricula.includes(search)
+    a.nome.toLowerCase().includes(search) || a.matricula.includes(search) ||
+    (a.cpf && a.cpf.includes(search)) ||
+    (a.nomeMae && a.nomeMae.toLowerCase().includes(search)) ||
+    (a.nomePai && a.nomePai.toLowerCase().includes(search))
   );
 
   if (!alunos.length) {
-    tbody.innerHTML = `<tr><td colspan="5">${buildEmptyState('Nenhum aluno encontrado.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">${buildEmptyState('Nenhum aluno encontrado.')}</td></tr>`;
     return;
   }
 
@@ -1925,6 +1991,8 @@ function loadDirAlunos() {
       <td style="color:var(--text-muted)">${esc(a.matricula)}</td>
       <td>${turma ? `<span class="badge badge-blue">${esc(turma.nome)}</span>` : '—'}</td>
       <td>${turma ? `${turnoIcon(turma.turno)} ${turma.turno}` : '—'}</td>
+      <td style="font-size:.82rem;color:var(--text-secondary)">${esc(a.nomeMae || '—')}</td>
+      <td style="font-size:.82rem;color:var(--text-secondary)">${esc(a.nomePai || '—')}</td>
       <td class="text-right" style="display:flex; gap:6px; justify-content:flex-end">
         <button class="btn btn-sm btn-ghost" data-id="${a.id}" onclick="editAluno(this.dataset.id)"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-sm btn-danger" data-id="${a.id}" onclick="confirmDeleteAluno(this)">
@@ -1943,20 +2011,34 @@ function openModalAluno(alunoId = null) {
   sel.innerHTML = '';
   fillSelectTurmas('aluno-turma-select');
 
+  // Helper to safely set field values
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+
   if (alunoId) {
     const a = dbFind('alunos', alunoId);
     if (a) {
-      document.getElementById('aluno-nome').value      = a.nome;
-      document.getElementById('aluno-matricula').value = a.matricula;
-      const cpfEl = document.getElementById('aluno-cpf');
-      if (cpfEl) cpfEl.value = a.cpf || '';
-      document.getElementById('aluno-turma-select').value = a.turmaId;
+      setVal('aluno-nome', a.nome);
+      setVal('aluno-matricula', a.matricula);
+      setVal('aluno-cpf', a.cpf);
+      setVal('aluno-nascimento', a.nascimento);
+      setVal('aluno-sexo', a.sexo);
+      setVal('aluno-turma-select', a.turmaId);
+      setVal('aluno-nome-pai', a.nomePai);
+      setVal('aluno-nome-mae', a.nomeMae);
+      setVal('aluno-responsavel', a.responsavel);
+      setVal('aluno-endereco', a.endereco);
+      setVal('aluno-telefone', a.telefone);
+      setVal('aluno-email-resp', a.emailResp);
+      setVal('aluno-tipo-sanguineo', a.tipoSanguineo);
+      setVal('aluno-nis', a.nis);
+      setVal('aluno-saude', a.saude);
+      setVal('aluno-observacoes', a.observacoes);
     }
   } else {
-    document.getElementById('aluno-nome').value = '';
-    document.getElementById('aluno-matricula').value = '';
-    const cpfEl = document.getElementById('aluno-cpf');
-    if (cpfEl) cpfEl.value = '';
+    ['aluno-nome','aluno-matricula','aluno-cpf','aluno-nascimento','aluno-sexo',
+     'aluno-nome-pai','aluno-nome-mae','aluno-responsavel','aluno-endereco',
+     'aluno-telefone','aluno-email-resp','aluno-tipo-sanguineo','aluno-nis',
+     'aluno-saude','aluno-observacoes'].forEach(id => setVal(id, ''));
   }
   openModal('modal-aluno');
 }
@@ -1973,7 +2055,23 @@ function saveAluno() {
 
   if (!nome || !mat || !turmaId) { toast('Preencha nome, matrícula e turma.', 'error'); return; }
 
-  const data = { nome, matricula: mat, cpf: cpf, turmaId, ativo: true };
+  const getVal = (elId) => { const el = document.getElementById(elId); return el ? el.value.trim() : ''; };
+
+  const data = {
+    nome, matricula: mat, cpf, turmaId, ativo: true,
+    nascimento:     getVal('aluno-nascimento'),
+    sexo:           getVal('aluno-sexo'),
+    nomePai:        getVal('aluno-nome-pai'),
+    nomeMae:        getVal('aluno-nome-mae'),
+    responsavel:    getVal('aluno-responsavel'),
+    endereco:       getVal('aluno-endereco'),
+    telefone:       getVal('aluno-telefone'),
+    emailResp:      getVal('aluno-email-resp'),
+    tipoSanguineo:  getVal('aluno-tipo-sanguineo'),
+    nis:            getVal('aluno-nis'),
+    saude:          getVal('aluno-saude'),
+    observacoes:    getVal('aluno-observacoes'),
+  };
 
   if (id) {
     dbUpdate('alunos', id, data);
@@ -1986,7 +2084,9 @@ function saveAluno() {
     toast('Aluno cadastrado!', 'success');
   }
   closeModal('modal-aluno');
-  loadDirAlunos();
+  // Reload whichever page is active
+  if (SESSION.role === 'secretaria') { try { loadSecAlunos(); } catch(e){} }
+  else loadDirAlunos();
 }
 
 function confirmDeleteAluno(btn) {
@@ -2379,16 +2479,60 @@ function loadDirHorarios() {
   const turmaId = sel.value;
   const container = document.getElementById('grade-semanal-container');
   const totalEl = document.getElementById('grade-total-aulas');
+  const infoEl = document.getElementById('grade-turma-info');
+  const resumoEl = document.getElementById('grade-resumo-discs');
   if (!turmaId) {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="fa-solid fa-calendar-week"></i></div><div class="empty-state-title">Selecione uma turma para visualizar a grade</div></div>`;
     if (totalEl) totalEl.textContent = '';
+    if (infoEl) infoEl.style.display = 'none';
+    if (resumoEl) resumoEl.style.display = 'none';
     return;
   }
+  const turma = dbFind('turmas', turmaId);
   const grade = dbGetAll('grade_horaria').filter(g => g.turmaId === turmaId);
   const discs = dbGetAll('disciplinas');
   const profs = dbGetAll('professores');
+  const alunosTurma = dbGetAll('alunos').filter(a => a.ativo && a.turmaId === turmaId);
   const totalAulas = grade.reduce((s, g) => s + g.qtdAulas, 0);
   if (totalEl) totalEl.textContent = `${totalAulas} aulas/semana`;
+
+  // Turma info banner
+  if (infoEl && turma) {
+    infoEl.style.display = '';
+    infoEl.innerHTML = `
+      <div class="panel-card mb-16" style="background:linear-gradient(135deg,#1e3d7a,#0f2347);color:#fff;border:none">
+        <div class="panel-card-body" style="padding:16px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+            <div style="width:48px;height:48px;background:rgba(255,255,255,.12);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">
+              <i class="fa-solid fa-chalkboard"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:1rem">${esc(turma.nome)}</div>
+              <div style="color:rgba(255,255,255,.5);font-size:.78rem">${turnoIcon(turma.turno)} Turno ${esc(turma.turno)}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap">
+            <div style="text-align:center">
+              <div style="font-weight:900;font-size:1.3rem">${alunosTurma.length}</div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.5);font-weight:600">Alunos</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-weight:900;font-size:1.3rem">${totalAulas}</div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.5);font-weight:600">Aulas/Semana</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-weight:900;font-size:1.3rem">${new Set(grade.map(g => g.disciplinaId)).size}</div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.5);font-weight:600">Disciplinas</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-weight:900;font-size:1.3rem">${new Set(grade.map(g => g.professorId)).size}</div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.5);font-weight:600">Professores</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   const byDay = {};
   for (let d = 1; d <= 5; d++) byDay[d] = grade.filter(g => g.diaSemana === d).sort((a,b) => a.ordem - b.ordem);
   container.innerHTML = `
@@ -2402,13 +2546,14 @@ function loadDirHorarios() {
       <div class="schedule-body">
         ${[1,2,3,4,5].map(d => `
           <div class="schedule-day-col">
-            ${byDay[d].map(slot => {
+            ${byDay[d].map((slot, idx) => {
               const disc = discs.find(x => x.id === slot.disciplinaId);
               const prof = profs.find(x => x.id === slot.professorId);
               return `<div class="schedule-slot editable" style="border-left:3px solid ${disc?.cor || '#666'}" onclick="openModalGradeSlot('${slot.id}')">
+                <div style="font-size:.58rem;color:var(--text-muted);font-weight:700;margin-bottom:2px">${idx + 1}ª aula</div>
                 <div class="schedule-slot-name"><i class="fa-solid ${disc?.icone || 'fa-book'}" style="color:${disc?.cor || '#666'}"></i> ${esc(disc?.nome || '?')}</div>
                 <div class="schedule-slot-info">${slot.qtdAulas > 1 ? `<span class="badge badge-amber" style="font-size:.6rem;padding:1px 6px">${slot.qtdAulas} aulas</span>` : '<span style="font-size:.68rem;color:var(--text-muted)">1 aula</span>'}</div>
-                <div class="schedule-slot-prof">${esc(prof?.nome?.split(' ')[0] || '?')}</div>
+                <div class="schedule-slot-prof"><i class="fa-solid fa-user" style="font-size:.55rem;margin-right:3px;opacity:.5"></i>${esc(prof?.nome || '?')}</div>
                 <button class="schedule-slot-delete" onclick="event.stopPropagation();confirmAction('Remover esta aula da grade?', () => deleteGradeSlot('${slot.id}'))"><i class="fa-solid fa-trash-can"></i></button>
               </div>`;
             }).join('')}
@@ -2417,6 +2562,32 @@ function loadDirHorarios() {
         `).join('')}
       </div>
     </div>`;
+
+  // Discipline summary
+  if (resumoEl && grade.length) {
+    const discCount = {};
+    grade.forEach(g => { discCount[g.disciplinaId] = (discCount[g.disciplinaId] || 0) + g.qtdAulas; });
+    resumoEl.style.display = '';
+    resumoEl.innerHTML = `
+      <div class="panel-card" style="margin-top:16px">
+        <div class="panel-card-header">
+          <div class="panel-card-title"><i class="fa-solid fa-chart-bar"></i> Resumo de Carga Horária</div>
+        </div>
+        <div class="panel-card-body" style="display:flex;gap:10px;flex-wrap:wrap">
+          ${Object.entries(discCount).map(([dId, count]) => {
+            const d = discs.find(x => x.id === dId);
+            const profIds = [...new Set(grade.filter(g => g.disciplinaId === dId).map(g => g.professorId))];
+            const profNames = profIds.map(pid => profs.find(p => p.id === pid)?.nome?.split(' ')[0] || '?').join(', ');
+            return `<div style="background:${d?.cor || '#666'}11;border:1px solid ${d?.cor || '#666'}33;border-radius:var(--r-md);padding:10px 14px;min-width:140px;flex:1">
+              <div style="font-weight:800;font-size:.85rem;color:${d?.cor || '#666'};display:flex;align-items:center;gap:6px"><i class="fa-solid ${d?.icone || 'fa-book'}"></i> ${esc(d?.nome || '?')}</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px"><strong>${count}</strong> aulas/semana · ${profNames}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else if (resumoEl) {
+    resumoEl.style.display = 'none';
+  }
 }
 
 function openModalGradeSlot(id, presetTurmaId, presetDia) {
@@ -2644,6 +2815,95 @@ document.addEventListener('click', e => {
   ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
   btn.appendChild(ripple);
   setTimeout(() => ripple.remove(), 600);
+});
+
+// =============================================================
+// TOPBAR LIVE CLOCK
+// =============================================================
+let _topbarClockInterval = null;
+function startTopbarClock() {
+  updateTopbarDate();
+  if (_topbarClockInterval) clearInterval(_topbarClockInterval);
+  _topbarClockInterval = setInterval(updateTopbarDate, 60000); // update every minute
+}
+
+function updateTopbarDate() {
+  const el = document.getElementById('topbar-date-text');
+  if (!el) return;
+  const now = new Date();
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const dia = dias[now.getDay()];
+  const d = now.getDate();
+  const m = meses[now.getMonth()];
+  const h = String(now.getHours()).padStart(2,'0');
+  const min = String(now.getMinutes()).padStart(2,'0');
+  el.textContent = `${dia}, ${d} ${m} · ${h}:${min}`;
+}
+
+// =============================================================
+// NOTA COUNTERS & BIMESTRE HIGHLIGHT
+// =============================================================
+function highlightActiveBimestre(bimestre) {
+  // Remove previous highlights
+  document.querySelectorAll('.bim-th-active, .bim-col-active').forEach(el => {
+    el.classList.remove('bim-th-active', 'bim-col-active');
+  });
+  // Highlight the active bimestre header
+  const thId = `notas-th-b${bimestre}`;
+  const th = document.getElementById(thId);
+  if (th) th.classList.add('bim-th-active');
+}
+
+function updateNotaCounters() {
+  const bimestre = document.getElementById('notas-select-bimestre')?.value;
+  if (!bimestre) return;
+  const inputs = document.querySelectorAll(`#notas-tbody .nota-input[data-bim="${bimestre}"]`);
+  const total = inputs.length;
+  let preenchidas = 0;
+  inputs.forEach(inp => { if (inp.value !== '') preenchidas++; });
+  const semNota = total - preenchidas;
+
+  // Update counters
+  const semNotaBadge = document.getElementById('notas-sem-nota-badge');
+  const semNotaCount = document.getElementById('notas-sem-nota-count');
+  const preenchBadge = document.getElementById('notas-preenchidas-badge');
+  const preenchCount = document.getElementById('notas-preenchidas-count');
+  const totalCount   = document.getElementById('notas-total-count');
+
+  if (semNotaBadge && semNotaCount) {
+    semNotaCount.textContent = semNota;
+    semNotaBadge.style.display = semNota > 0 ? 'inline-flex' : 'none';
+  }
+  if (preenchBadge && preenchCount && totalCount) {
+    preenchCount.textContent = preenchidas;
+    totalCount.textContent = total;
+    preenchBadge.style.display = total > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+// =============================================================
+// KEYBOARD NAVIGATION FOR NOTA INPUTS
+// =============================================================
+document.addEventListener('keydown', e => {
+  if (!e.target.classList.contains('nota-input')) return;
+  const input = e.target;
+  
+  // Enter or Tab: move to the same bimestre field of the next student row
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const row = input.closest('tr');
+    const nextRow = row?.nextElementSibling;
+    if (nextRow) {
+      const bim = input.dataset.bim;
+      const nextInput = nextRow.querySelector(`.nota-input[data-bim="${bim}"]:not([disabled])`);
+      if (nextInput) { nextInput.focus(); nextInput.select(); }
+    }
+  }
+  // Escape: blur the input
+  if (e.key === 'Escape') {
+    input.blur();
+  }
 });
 
 // =============================================================

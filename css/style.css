@@ -886,6 +886,56 @@ ul,ol { list-style:none; }
   flex-shrink:0;
 }
 
+/* ── Topbar Date Chip ──────────────────────────────────────── */
+.topbar-date-chip {
+  display:flex; align-items:center; gap:6px;
+  background:var(--bg); border:1px solid var(--border);
+  padding:5px 14px; border-radius:var(--r-full);
+  font-size:0.72rem; font-weight:600; color:var(--text-secondary);
+  margin-left:14px; white-space:nowrap;
+}
+.topbar-date-chip i { color:var(--secondary); font-size:0.7rem; }
+@media (max-width:640px) { .topbar-date-chip { display:none; } }
+
+/* ── Nota Saved Flash ──────────────────────────────────────── */
+.nota-input.saved-flash {
+  animation:notaSaved 0.6s ease;
+}
+@keyframes notaSaved {
+  0%   { background:var(--surface); }
+  30%  { background:var(--success-light); border-color:var(--success); box-shadow:0 0 0 3px rgba(5,150,105,0.15); }
+  100% { background:var(--surface); }
+}
+
+/* ── Notas Counter Badge ───────────────────────────────────── */
+.notas-counter-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 14px; border-radius:var(--r-full);
+  font-size:0.75rem; font-weight:700;
+  background:var(--warning-light); color:var(--warning);
+  border:1px solid rgba(217,119,6,0.2);
+}
+.notas-counter-badge.success {
+  background:var(--success-light); color:var(--success);
+  border-color:rgba(5,150,105,0.2);
+}
+.notas-counter-badge i { font-size:0.7rem; }
+
+/* ── Active Bimestre Column ────────────────────────────────── */
+.bim-col-active {
+  background:rgba(37,99,235,0.04) !important;
+}
+.data-table th.bim-th-active {
+  background:linear-gradient(135deg,var(--secondary),var(--secondary-light)) !important;
+  color:#fff !important; font-weight:800 !important;
+  position:relative;
+}
+.data-table th.bim-th-active::after {
+  content:'●'; position:absolute; top:2px; right:6px;
+  font-size:0.4rem; color:rgba(255,255,255,0.6);
+  animation:pulseDot 2s infinite;
+}
+
 /* Pages */
 .dash-pages { flex:1; padding:24px; overflow-y:auto; }
 .dash-page { display:none; }

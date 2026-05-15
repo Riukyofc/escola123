@@ -612,3 +612,105 @@ function toggleEscolaStatus(id, novoStatus) {
     closeModal('modal-confirm');
   });
 }
+
+function loadSecAlunos() {
+  const search = (document.getElementById('sec-alunos-busca')?.value || '').toLowerCase();
+  const filtroTurma = document.getElementById('sec-alunos-filtro-turma')?.value || '';
+  const filtroEscola = document.getElementById('sec-alunos-filtro-escola')?.value || '';
+  const filtroSerie = document.getElementById('sec-alunos-filtro-serie')?.value || '';
+  const turmas = dbGetAll('turmas');
+  const escolas = dbGetAll('escolas_rede');
+  const tbody = document.getElementById('sec-alunos-tbody');
+  const countEl = document.getElementById('sec-alunos-count');
+  const statsEl = document.getElementById('sec-alunos-stats');
+
+  const getSerie = (tNome) => {
+    const parts = tNome.split(' ');
+    return parts.length >= 2 ? parts[0] + ' ' + parts[1] : tNome;
+  };
+
+  // Fill filters (once)
+  const escolaSel = document.getElementById('sec-alunos-filtro-escola');
+  if (escolaSel && escolaSel.options.length <= 1) {
+    escolas.filter(e => e.ativa).forEach(e => {
+      escolaSel.innerHTML += `<option value="${esc(e.id)}">${esc(e.nomeAbreviado || e.nome)}</option>`;
+    });
+  }
+
+  const serieSel = document.getElementById('sec-alunos-filtro-serie');
+  if (serieSel && serieSel.options.length <= 1) {
+    const series = [...new Set(turmas.map(t => getSerie(t.nome)))].sort();
+    series.forEach(s => {
+      serieSel.innerHTML += `<option value="${esc(s)}">${esc(s)}</option>`;
+    });
+  }
+
+  const filtroSel = document.getElementById('sec-alunos-filtro-turma');
+  if (filtroSel && filtroSel.options.length <= 1) {
+    turmas.filter(t => t.ativo).forEach(t => {
+      filtroSel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)} (${turnoIcon(t.turno)} ${esc(t.turno)})</option>`;
+    });
+  }
+
+  let alunos = dbGetAll('alunos').filter(a => a.ativo);
+  
+  if (filtroEscola) {
+    const turmasEscolaIds = turmas.filter(t => t.escolaId === filtroEscola || (!t.escolaId && filtroEscola === 'esc01')).map(t => t.id);
+    alunos = alunos.filter(a => turmasEscolaIds.includes(a.turmaId) || (a.escolaId === filtroEscola));
+  }
+
+  if (filtroSerie) {
+    const turmasSerieIds = turmas.filter(t => getSerie(t.nome) === filtroSerie).map(t => t.id);
+    alunos = alunos.filter(a => turmasSerieIds.includes(a.turmaId));
+  }
+
+  if (filtroTurma) alunos = alunos.filter(a => a.turmaId === filtroTurma);
+  if (search) alunos = alunos.filter(a =>
+    a.nome.toLowerCase().includes(search) ||
+    a.matricula.includes(search) ||
+    (a.cpf && a.cpf.includes(search)) ||
+    (a.nomeMae && a.nomeMae.toLowerCase().includes(search)) ||
+    (a.nomePai && a.nomePai.toLowerCase().includes(search))
+  );
+
+  // Stats
+  const allAlunos = dbGetAll('alunos').filter(a => a.ativo);
+  const comMae = allAlunos.filter(a => a.nomeMae).length;
+  const comPai = allAlunos.filter(a => a.nomePai).length;
+  const comTel = allAlunos.filter(a => a.telefone).length;
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Total de Alunos</span><div class="stat-icon blue"><i class="fa-solid fa-user-graduate"></i></div></div>
+        <div class="stat-num">${allAlunos.length}</div><div class="stat-desc">matriculados na rede</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Com Nome da Mãe</span><div class="stat-icon purple"><i class="fa-solid fa-person-dress"></i></div></div>
+        <div class="stat-num">${comMae}</div><div class="stat-desc">${allAlunos.length > 0 ? ((comMae/allAlunos.length)*100).toFixed(0) : 0}% preenchido</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Com Nome do Pai</span><div class="stat-icon green"><i class="fa-solid fa-person"></i></div></div>
+        <div class="stat-num">${comPai}</div><div class="stat-desc">${allAlunos.length > 0 ? ((comPai/allAlunos.length)*100).toFixed(0) : 0}% preenchido</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Com Telefone</span><div class="stat-icon yellow"><i class="fa-solid fa-phone"></i></div></div>
+        <div class="stat-num">${comTel}</div><div class="stat-desc">${allAlunos.length > 0 ? ((comTel/allAlunos.length)*100).toFixed(0) : 0}% preenchido</div></div>`;
+  }
+
+  if (countEl) countEl.textContent = `${alunos.length} aluno${alunos.length !== 1 ? 's' : ''}`;
+
+  if (!alunos.length) {
+    tbody.innerHTML = `<tr><td colspan="8">${buildEmptyState('Nenhum aluno encontrado.')}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = alunos.map(a => {
+    const turma = turmas.find(t => t.id === a.turmaId);
+    const nasc = a.nascimento ? new Date(a.nascimento + 'T12:00').toLocaleDateString('pt-BR') : '—';
+    return `<tr>
+      <td style="font-weight:700">${esc(a.nome)}</td>
+      <td style="color:var(--text-muted)">${esc(a.matricula)}</td>
+      <td>${turma ? `<span class="badge badge-blue">${esc(turma.nome)}</span>` : '—'}</td>
+      <td>${turma ? `${turnoIcon(turma.turno)} ${turma.turno}` : '—'}</td>
+      <td style="font-size:.82rem">${esc(a.nomePai || '—')}</td>
+      <td style="font-size:.82rem">${esc(a.nomeMae || '—')}</td>
+      <td style="font-size:.82rem">${nasc}</td>
+      <td class="text-right" style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-sm btn-ghost" data-id="${a.id}" onclick="editAluno(this.dataset.id)"><i class="fa-solid fa-pen"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
