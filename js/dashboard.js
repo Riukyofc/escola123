@@ -31,6 +31,7 @@ const NAV = {
     { id: 'page-aluno-horario',     icon: 'fa-calendar-week',    label: 'Meu Horário',      sub: 'Grade semanal' },
     { id: 'page-aluno-frequencia',  icon: 'fa-calendar-check',   label: 'Minha Frequência', sub: 'Presença nas aulas' },
     { id: 'page-aluno-diario',      icon: 'fa-book-open',        label: 'Diário de Aulas',  sub: 'Conteúdos ministrados' },
+    { id: 'page-aluno-atividades',  icon: 'fa-clipboard-list',   label: 'Atividades',       sub: 'Provas e trabalhos' },
     { id: 'page-aluno-avisos',      icon: 'fa-bell',             label: 'Avisos',           sub: 'Comunicados da escola' },
   ],
   professor: [
@@ -50,6 +51,7 @@ const NAV = {
     { id: 'page-dir-turmas',      icon: 'fa-chalkboard',      label: 'Turmas',           sub: 'Salas e turnos' },
     { id: 'page-dir-horarios',    icon: 'fa-clock',           label: 'Horários',         sub: 'Horários de aula' },
     { id: 'page-dir-relatorios',  icon: 'fa-chart-pie',       label: 'Relatórios',       sub: 'Notas e desempenho' },
+    { id: 'page-dir-diario',     icon: 'fa-book-open',       label: 'Diário Digital',   sub: 'Registros de aulas dos professores' },
     { id: 'page-dir-conteudo',    icon: 'fa-palette',         label: 'Conteúdo do Site',  sub: 'Equipe, galeria e depoimentos' },
     { id: 'page-dir-circulares',  icon: 'fa-scroll',          label: 'Circulares SEMED', sub: 'Ofícios e resoluções' },
     { id: 'page-dir-avisos',      icon: 'fa-bell',            label: 'Avisos',           sub: 'Comunicados gerais' },
@@ -542,6 +544,7 @@ function loadPageData(pageId) {
     case 'page-aluno-frequencia': loadAlunoFrequencia(); break;
     case 'page-aluno-horario':    loadAlunoHorario();    break;
     case 'page-aluno-diario':     loadAlunoDiario();     break;
+    case 'page-aluno-atividades': loadAlunoAtividades(); break;
     case 'page-aluno-avisos':     loadAvisosPage('aluno-avisos-body'); break;
 
     case 'page-prof-inicio':      loadProfInicio();     break;
@@ -559,6 +562,7 @@ function loadPageData(pageId) {
     case 'page-dir-turmas':       loadDirTurmas();      break;
     case 'page-dir-horarios':     loadDirHorarios();    break;
     case 'page-dir-relatorios':   loadRelatorio();      break;
+    case 'page-dir-diario':       loadDirDiario();      break;
     case 'page-dir-conteudo':     loadDirConteudo();    break;
     case 'page-dir-circulares':   loadDirCirculares();  break;
     case 'page-dir-avisos':       loadAllAvisos();      break;
@@ -1084,6 +1088,9 @@ function loadProfInicio() {
           </div>`;
       }).join('')}
     </div>`;
+
+  // Render pendencies panel
+  renderProfPendencias();
 }
 
 // =============================================================
@@ -3627,4 +3634,364 @@ function deleteEquipe(id) {
   toast('Membro removido.', 'success');
   loadEquipeAdmin();
   closeModal('modal-confirm');
+}
+
+// =============================================================
+// DIRETOR: DIÁRIO DIGITAL — Acompanhamento de Professores
+// =============================================================
+function loadDirDiario() {
+  const profs    = dbGetAll('professores').filter(p => p.ativo);
+  const turmas   = dbGetAll('turmas').filter(t => t.ativo);
+  const discs    = dbGetAll('disciplinas').filter(d => d.ativo);
+  const diario   = dbGetAll('diario');
+  const grade    = dbGetAll('grade_horaria');
+  const freq     = dbGetAll('frequencia');
+
+  // ── Fill filter selects ──
+  const profSel = document.getElementById('dir-diario-filtro-prof');
+  if (profSel && profSel.options.length <= 1) {
+    profSel.innerHTML = '<option value="">Todos os professores</option>';
+    profs.forEach(p => { profSel.innerHTML += `<option value="${esc(p.id)}">${esc(p.nome)}</option>`; });
+  }
+  const turmaSel = document.getElementById('dir-diario-filtro-turma');
+  if (turmaSel && turmaSel.options.length <= 1) {
+    turmaSel.innerHTML = '<option value="">Todas as turmas</option>';
+    turmas.forEach(t => { turmaSel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)}</option>`; });
+  }
+
+  // ── Apply filters ──
+  let registros = [...diario].sort((a, b) => b.data.localeCompare(a.data));
+  const filtroProf  = profSel?.value || '';
+  const filtroTurma = turmaSel?.value || '';
+  const search      = (document.getElementById('dir-diario-search')?.value || '').toLowerCase();
+  if (filtroProf)  registros = registros.filter(r => r.professorId === filtroProf);
+  if (filtroTurma) registros = registros.filter(r => r.turmaId === filtroTurma);
+  if (search)      registros = registros.filter(r =>
+    (r.conteudo || '').toLowerCase().includes(search) ||
+    (r.anotacao || '').toLowerCase().includes(search)
+  );
+
+  // ── Stats banner ──
+  const totalEl = document.getElementById('dir-diario-stat-total');
+  const profsEl = document.getElementById('dir-diario-stat-profs');
+  const turmasEl = document.getElementById('dir-diario-stat-turmas');
+  const semanaEl = document.getElementById('dir-diario-stat-semana');
+
+  if (totalEl) totalEl.textContent = diario.length;
+  if (profsEl) profsEl.textContent = new Set(diario.map(r => r.professorId)).size;
+  if (turmasEl) turmasEl.textContent = new Set(diario.map(r => r.turmaId)).size;
+
+  // Registros desta semana
+  const hoje = new Date();
+  const inicioSemana = new Date(hoje);
+  inicioSemana.setDate(hoje.getDate() - hoje.getDay() + 1); // Segunda
+  const inicioISO = inicioSemana.toISOString().slice(0, 10);
+  const registrosSemana = diario.filter(r => r.data >= inicioISO);
+  if (semanaEl) semanaEl.textContent = registrosSemana.length;
+
+  // ── Filter count ──
+  const countEl = document.getElementById('dir-diario-filter-count');
+  if (countEl) countEl.textContent = `${registros.length} registro${registros.length !== 1 ? 's' : ''}`;
+
+  // ── Professor performance cards ──
+  const perfBody = document.getElementById('dir-diario-perf-cards');
+  if (perfBody) {
+    const profPerf = profs.map(p => {
+      const regProf = diario.filter(r => r.professorId === p.id);
+      const regSemana = regProf.filter(r => r.data >= inicioISO);
+      const turmasProf = turmas.filter(t => (p.turmaIds || []).includes(t.id));
+      const totalAulasGrade = grade.filter(g => g.professorId === p.id)
+        .reduce((s, g) => s + g.qtdAulas, 0);
+      const freqProf = freq.filter(f => turmasProf.some(t => t.id === f.turmaId));
+
+      // Calcular dias letivos sem frequência registrada (últimas 4 semanas)
+      const diasLetivos = calcDiasLetivos(28);
+      const diasComFreq = new Set(freqProf.map(f => f.data + '|' + f.turmaId));
+      let freqFaltantes = 0;
+      turmasProf.forEach(t => {
+        diasLetivos.forEach(d => {
+          if (!diasComFreq.has(d + '|' + t.id)) freqFaltantes++;
+        });
+      });
+
+      // Último registro
+      const ultimo = regProf.length ? regProf.sort((a, b) => b.data.localeCompare(a.data))[0] : null;
+      const diasDesdeUltimo = ultimo ? Math.floor((new Date() - new Date(ultimo.data + 'T12:00:00')) / 86400000) : 999;
+
+      // Status
+      let status = 'ok', statusLabel = 'Em dia', statusIcon = 'fa-circle-check', statusColor = '#059669';
+      if (diasDesdeUltimo > 7 || regSemana.length === 0) {
+        status = 'alerta'; statusLabel = 'Atenção'; statusIcon = 'fa-triangle-exclamation'; statusColor = '#d97706';
+      }
+      if (diasDesdeUltimo > 14) {
+        status = 'critico'; statusLabel = 'Crítico'; statusIcon = 'fa-circle-xmark'; statusColor = '#dc2626';
+      }
+
+      return { prof: p, total: regProf.length, semana: regSemana.length, turmas: turmasProf,
+        aulasGrade: totalAulasGrade, freqFaltantes, ultimo, diasDesdeUltimo, status, statusLabel, statusIcon, statusColor };
+    }).sort((a, b) => b.diasDesdeUltimo - a.diasDesdeUltimo);
+
+    perfBody.innerHTML = profPerf.map(pp => `
+      <div class="dir-diario-prof-card" style="background:var(--surface);border:1.5px solid ${pp.statusColor}22;border-radius:var(--r-lg);padding:18px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;width:60px;height:60px;background:${pp.statusColor}08;border-radius:0 0 0 100%"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:42px;height:42px;border-radius:var(--r-full);background:${pp.statusColor}15;color:${pp.statusColor};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0">
+            ${esc(pp.prof.nome.charAt(0))}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:.9rem;color:var(--text)">${esc(pp.prof.nome)}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">${pp.turmas.map(t => esc(t.nome)).join(', ') || 'Sem turmas'}</div>
+          </div>
+          <span class="badge" style="background:${pp.statusColor}15;color:${pp.statusColor};border:1px solid ${pp.statusColor}33;font-size:.68rem">
+            <i class="fa-solid ${pp.statusIcon}" style="margin-right:3px"></i>${esc(pp.statusLabel)}
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--r-md)">
+            <div style="font-weight:900;font-size:1.1rem;color:var(--primary)">${pp.total}</div>
+            <div style="font-size:.65rem;color:var(--text-muted);font-weight:600">Total Registros</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--r-md)">
+            <div style="font-weight:900;font-size:1.1rem;color:${pp.semana > 0 ? 'var(--success)' : 'var(--danger)'}">${pp.semana}</div>
+            <div style="font-size:.65rem;color:var(--text-muted);font-weight:600">Esta Semana</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--r-md)">
+            <div style="font-weight:900;font-size:1.1rem;color:${pp.freqFaltantes === 0 ? 'var(--success)' : 'var(--danger)'}">${pp.freqFaltantes}</div>
+            <div style="font-size:.65rem;color:var(--text-muted);font-weight:600">Freq. Pendentes</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:.72rem;color:var(--text-muted)">
+          <i class="fa-regular fa-clock" style="margin-right:4px"></i>
+          Último registro: ${pp.ultimo ? formatDate(pp.ultimo.data) + ' (' + pp.diasDesdeUltimo + ' dias atrás)' : '<span style="color:var(--danger)">Nenhum registro</span>'}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Registros table ──
+  const tbody = document.getElementById('dir-diario-tbody');
+  if (!tbody) return;
+
+  if (!registros.length) {
+    tbody.innerHTML = `<tr class="diario-empty-row"><td colspan="9">
+      <i class="fa-solid fa-book-open"></i>
+      <div style="font-weight:700;margin-bottom:4px">Nenhum registro encontrado</div>
+      <div style="font-size:.78rem">Ajuste os filtros para visualizar os registros</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = registros.map((r, idx) => {
+    const turma = turmas.find(t => t.id === r.turmaId);
+    const disc  = discs.find(d => d.id === r.disciplinaId);
+    const prof  = profs.find(p => p.id === r.professorId);
+    const dateObj = new Date(r.data + 'T12:00:00');
+    const weekday = DIAS_SEMANA_FULL[dateObj.getDay()];
+    const discBg = disc ? `${disc.cor}18` : 'var(--bg)';
+    const discColor = disc?.cor || 'var(--text-muted)';
+    const qtd = r.qtdAulas || 1;
+
+    return `<tr>
+      <td><div class="diario-row-num">${String(idx + 1).padStart(2, '0')}</div></td>
+      <td>
+        <div class="diario-date-cell">${formatDate(r.data)}</div>
+        <span class="diario-date-weekday">${weekday}</span>
+      </td>
+      <td style="font-size:.82rem;font-weight:700;color:var(--text)">${prof ? esc(prof.nome.split(' ').slice(0, 2).join(' ')) : '—'}</td>
+      <td>${turma ? `<span class="badge badge-blue">${esc(turma.nome)}</span>` : '<span class="badge badge-gray">—</span>'}</td>
+      <td>${disc ? `<span class="diario-disc-badge" style="background:${discBg};color:${discColor};border:1px solid ${discColor}33"><i class="fa-solid ${disc.icone || 'fa-book'}"></i> ${esc(disc.nome)}</span>` : '<span class="badge badge-gray">—</span>'}</td>
+      <td class="diario-conteudo-cell">${esc(r.conteudo)}</td>
+      <td class="text-center"><span class="diario-aulas-chip">${qtd}</span></td>
+      <td class="diario-obs-cell">${r.anotacao ? esc(r.anotacao) : '<span style="color:var(--text-muted);opacity:.4">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDirDiario() { loadDirDiario(); }
+
+// Helper: calcular últimos N dias letivos (seg-sex)
+function calcDiasLetivos(diasAtras) {
+  const result = [];
+  const hoje = new Date();
+  for (let i = 0; i < diasAtras; i++) {
+    const d = new Date(hoje);
+    d.setDate(hoje.getDate() - i);
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) {
+      result.push(d.toISOString().slice(0, 10));
+    }
+  }
+  return result;
+}
+
+// =============================================================
+// ALUNO: ATIVIDADES
+// =============================================================
+function loadAlunoAtividades() {
+  const aluno = SESSION.user;
+  if (!aluno) return;
+
+  const grid = document.getElementById('aluno-atividades-grid');
+  if (!grid) return;
+
+  const atividades = dbGetAll('atividades').filter(a => a.ativo && a.turmaId === aluno.turmaId);
+  const turmas = dbGetAll('turmas');
+  const profs  = dbGetAll('professores');
+
+  // Stats
+  const totalEl = document.getElementById('aluno-ativ-total');
+  const proxEl  = document.getElementById('aluno-ativ-proximas');
+  if (totalEl) totalEl.textContent = atividades.length;
+  const hoje = todayISO();
+  const proximas = atividades.filter(a => a.dataPrazo && a.dataPrazo >= hoje);
+  if (proxEl) proxEl.textContent = proximas.length;
+
+  // Filter
+  const filtroTipo = document.getElementById('aluno-ativ-filtro-tipo')?.value || '';
+  let filtered = [...atividades];
+  if (filtroTipo) filtered = filtered.filter(a => a.tipo === filtroTipo);
+  filtered.sort((a, b) => (b.dataPrazo || '').localeCompare(a.dataPrazo || ''));
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+      <div class="empty-state-title">${atividades.length ? 'Nenhuma atividade com esse filtro' : 'Nenhuma atividade publicada para sua turma'}</div>
+      <div class="empty-state-desc">As atividades publicadas pelos seus professores aparecerão aqui.</div>
+    </div>`;
+    return;
+  }
+
+  const tipoIcon  = { prova:'fa-file-pen', trabalho:'fa-clipboard-list', exercicio:'fa-pencil', projeto:'fa-flask' };
+  const tipoLabel = { prova:'Prova', trabalho:'Trabalho', exercicio:'Exercício', projeto:'Projeto' };
+  const tipoBg    = { prova:'rgba(220,38,38,0.08)', trabalho:'rgba(37,99,235,0.08)', exercicio:'rgba(16,185,129,0.08)', projeto:'rgba(124,58,237,0.08)' };
+  const tipoColor = { prova:'#dc2626', trabalho:'#2563eb', exercicio:'#059669', projeto:'#7c3aed' };
+
+  grid.innerHTML = filtered.map(a => {
+    const turma = turmas.find(t => t.id === a.turmaId);
+    const prof  = profs.find(p => p.id === a.professorId);
+    const tipo  = a.tipo || 'exercicio';
+    const vencida = a.dataPrazo && a.dataPrazo < hoje;
+    const bgColor = tipoBg[tipo] || 'var(--bg)';
+    const fgColor = tipoColor[tipo] || 'var(--text-muted)';
+
+    return `<div class="ativ-card" style="border-left:3px solid ${fgColor}">
+      <div class="ativ-icon" style="background:${bgColor};color:${fgColor}">
+        <i class="fa-solid ${tipoIcon[tipo] || 'fa-clipboard-list'}"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="ativ-title">${esc(a.titulo)}</div>
+        <div class="ativ-meta">
+          <span><i class="fa-solid fa-chalkboard-user"></i> ${prof ? esc(prof.nome.split(' ').slice(0,2).join(' ')) : '—'}</span>
+          <span><i class="fa-regular fa-calendar"></i> ${a.dataPrazo ? formatDate(a.dataPrazo) : 'Sem prazo'}</span>
+          <span><i class="fa-solid fa-star"></i> ${esc(String(a.pontos))} pts</span>
+          <span class="badge" style="background:${bgColor};color:${fgColor};border:1px solid ${fgColor}33">${esc(tipoLabel[tipo] || tipo)}</span>
+          ${vencida ? '<span class="badge badge-red"><i class="fa-solid fa-clock"></i> Vencida</span>' : ''}
+        </div>
+        ${a.descricao ? `<div style="color:var(--text-secondary);font-size:.82rem;margin-top:6px;line-height:1.5">${esc(a.descricao)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAlunoAtividades() { loadAlunoAtividades(); }
+
+// =============================================================
+// PROFESSOR: PENDÊNCIAS (Enhanced loadProfInicio)
+// =============================================================
+function renderProfPendencias() {
+  const body = document.getElementById('prof-pendencias-body');
+  if (!body) return;
+
+  const turmas = getMyTurmas();
+  const diario = dbGetAll('diario');
+  const freq   = dbGetAll('frequencia');
+  const grade  = dbGetAll('grade_horaria');
+  const profId = SESSION.user ? SESSION.user.id : null;
+  const discs  = dbGetAll('disciplinas');
+
+  // Calcular dias letivos (últimas 4 semanas)
+  const diasLetivos = calcDiasLetivos(28);
+
+  let totalPendDiario = 0;
+  let totalPendFreq = 0;
+  let pendenciasPorTurma = [];
+
+  turmas.forEach(t => {
+    // ── Frequências pendentes ──
+    const freqTurma = freq.filter(f => f.turmaId === t.id);
+    const diasComFreq = new Set(freqTurma.map(f => f.data));
+    const freqFaltantes = diasLetivos.filter(d => !diasComFreq.has(d));
+
+    // ── Diário: aulas da grade vs registros ──
+    const gradeTurma = grade.filter(g => g.turmaId === t.id && (!profId || g.professorId === profId));
+    const diarioTurma = diario.filter(r => r.turmaId === t.id && (!profId || r.professorId === profId));
+
+    // Aulas da semana na grade
+    const aulasPrevistaSemana = gradeTurma.reduce((s, g) => s + g.qtdAulas, 0);
+
+    // Registros de diário dos últimos 7 dias
+    const hoje = new Date();
+    const seteDiasAtras = new Date(hoje);
+    seteDiasAtras.setDate(hoje.getDate() - 7);
+    const seteDiasISO = seteDiasAtras.toISOString().slice(0, 10);
+    const diarioRecente = diarioTurma.filter(r => r.data >= seteDiasISO);
+
+    const diarioFaltante = Math.max(0, aulasPrevistaSemana - diarioRecente.length);
+
+    totalPendDiario += diarioFaltante;
+    totalPendFreq += freqFaltantes.length;
+
+    pendenciasPorTurma.push({
+      turma: t,
+      freqFaltantes: freqFaltantes.length,
+      diarioFaltante,
+      aulasPrevistaSemana,
+      diarioRegistrado: diarioRecente.length,
+      freqDias: freqFaltantes.slice(0, 5) // Top 5 mais recentes
+    });
+  });
+
+  if (totalPendDiario === 0 && totalPendFreq === 0) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:24px">
+        <div style="width:56px;height:56px;border-radius:var(--r-full);background:rgba(16,185,129,0.1);color:#059669;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin:0 auto 12px">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div style="font-weight:800;color:var(--success);font-size:.95rem">Tudo em dia! 🎉</div>
+        <div style="color:var(--text-muted);font-size:.78rem;margin-top:4px">Nenhuma pendência de diário ou frequência encontrada.</div>
+      </div>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="text-align:center;padding:14px;background:${totalPendDiario > 0 ? 'rgba(234,88,12,0.08)' : 'rgba(16,185,129,0.08)'};border-radius:var(--r-md);border:1px solid ${totalPendDiario > 0 ? 'rgba(234,88,12,0.2)' : 'rgba(16,185,129,0.2)'}">
+        <div style="font-weight:900;font-size:1.3rem;color:${totalPendDiario > 0 ? '#ea580c' : '#059669'}">${totalPendDiario}</div>
+        <div style="font-size:.72rem;color:var(--text-muted);font-weight:600"><i class="fa-solid fa-book-open" style="margin-right:4px"></i>Aulas p/ registrar</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:${totalPendFreq > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(16,185,129,0.08)'};border-radius:var(--r-md);border:1px solid ${totalPendFreq > 0 ? 'rgba(220,38,38,0.2)' : 'rgba(16,185,129,0.2)'}">
+        <div style="font-weight:900;font-size:1.3rem;color:${totalPendFreq > 0 ? '#dc2626' : '#059669'}">${totalPendFreq}</div>
+        <div style="font-size:.72rem;color:var(--text-muted);font-weight:600"><i class="fa-solid fa-calendar-check" style="margin-right:4px"></i>Frequências pendentes</div>
+      </div>
+    </div>
+    ${pendenciasPorTurma.filter(p => p.freqFaltantes > 0 || p.diarioFaltante > 0).map(p => `
+      <div style="padding:12px;background:var(--bg);border-radius:var(--r-md);margin-bottom:8px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:800;font-size:.85rem;color:var(--primary)">${esc(p.turma.nome)}</span>
+          <span style="font-size:.68rem;color:var(--text-muted)">${turnoIcon(p.turma.turno)} ${esc(p.turma.turno)}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${p.diarioFaltante > 0 ? `<span class="badge" style="background:rgba(234,88,12,0.1);color:#ea580c;border:1px solid rgba(234,88,12,0.25);font-size:.68rem">
+            <i class="fa-solid fa-book-open" style="margin-right:3px"></i>${p.diarioRegistrado}/${p.aulasPrevistaSemana} aulas registradas (sem.)
+          </span>` : ''}
+          ${p.freqFaltantes > 0 ? `<span class="badge" style="background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:.68rem">
+            <i class="fa-solid fa-calendar-xmark" style="margin-right:3px"></i>${p.freqFaltantes} dia(s) sem frequência
+          </span>` : ''}
+        </div>
+        ${p.freqDias.length > 0 ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
+          ${p.freqDias.map(d => `<span style="font-size:.62rem;padding:2px 8px;background:rgba(220,38,38,0.06);color:#dc2626;border-radius:99px;font-weight:600">${formatDate(d)}</span>`).join('')}
+        </div>` : ''}
+      </div>
+    `).join('')}
+  `;
 }

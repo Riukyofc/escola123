@@ -397,6 +397,44 @@
       </div>
 
       <!-- ══════════════════════════════════
+           ALUNO: ATIVIDADES
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-aluno-atividades">
+        <div class="diario-hero-banner" style="background:linear-gradient(135deg,#7c3aed 0%,#5b21b6 50%,#6d28d9 100%)">
+          <div class="diario-hero-content">
+            <div class="diario-hero-icon" style="background:rgba(255,255,255,0.12)"><i class="fa-solid fa-clipboard-list"></i></div>
+            <div>
+              <div class="diario-hero-title">Atividades</div>
+              <div class="diario-hero-sub">Provas, trabalhos e exercícios publicados pelos seus professores</div>
+            </div>
+          </div>
+          <div class="diario-hero-stats">
+            <div class="diario-stat-chip"><i class="fa-solid fa-clipboard-check"></i> <span id="aluno-ativ-total">0</span> atividades</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-clock"></i> <span id="aluno-ativ-proximas">0</span> próximas</div>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="panel-card" style="margin-bottom:16px">
+          <div class="diario-filter-bar">
+            <div class="diario-filter-left">
+              <select class="form-control form-select" id="aluno-ativ-filtro-tipo" style="min-width:150px;max-width:200px" onchange="renderAlunoAtividades()">
+                <option value="">Todos os tipos</option>
+                <option value="prova">📝 Prova</option>
+                <option value="trabalho">📋 Trabalho</option>
+                <option value="exercicio">✏️ Exercício</option>
+                <option value="projeto">🔬 Projeto</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="aluno-atividades-grid" style="display:grid;gap:12px">
+          <div class="shimmer shimmer-card"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
            ALUNO: AVISOS
       ══════════════════════════════════ -->
       <div class="dash-page" id="page-aluno-avisos">
@@ -453,6 +491,17 @@
             <div class="panel-card-title"><i class="fa-solid fa-users-rectangle"></i> Minhas Turmas</div>
           </div>
           <div class="panel-card-body" id="prof-turmas-resumo">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
+
+        <!-- Pendências do Professor -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Minhas Pendências</div>
+            <span class="badge badge-outline">Últimas 4 semanas</span>
+          </div>
+          <div class="panel-card-body" id="prof-pendencias-body">
             <div class="shimmer shimmer-card"></div>
           </div>
         </div>
@@ -962,6 +1011,82 @@
               </thead>
               <tbody id="rel-tbody">
                 <tr><td colspan="9"><div class="shimmer shimmer-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: DIÁRIO DIGITAL
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-diario">
+        <!-- Hero banner -->
+        <div class="diario-hero-banner" style="background:linear-gradient(135deg,#059669 0%,#065f46 50%,#047857 100%)">
+          <div class="diario-hero-content">
+            <div class="diario-hero-icon" style="background:rgba(255,255,255,0.12)"><i class="fa-solid fa-book-open"></i></div>
+            <div>
+              <div class="diario-hero-title">Diário Digital — Visão da Direção</div>
+              <div class="diario-hero-sub">Acompanhe todos os registros de aulas e o desempenho dos professores</div>
+            </div>
+          </div>
+          <div class="diario-hero-stats" id="dir-diario-hero-stats">
+            <div class="diario-stat-chip"><i class="fa-solid fa-calendar-check"></i> <span id="dir-diario-stat-total">0</span> registros</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-chalkboard-user"></i> <span id="dir-diario-stat-profs">0</span> professores</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-chalkboard"></i> <span id="dir-diario-stat-turmas">0</span> turmas</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-chart-line"></i> <span id="dir-diario-stat-semana">0</span> esta semana</div>
+          </div>
+        </div>
+
+        <!-- Desempenho por Professor -->
+        <div class="panel-card" style="margin-bottom:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-ranking-star" style="color:var(--warning)"></i> Desempenho dos Professores</div>
+            <span class="badge badge-outline">Acompanhamento semanal</span>
+          </div>
+          <div class="panel-card-body">
+            <div id="dir-diario-perf-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+              <div class="shimmer shimmer-card"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter + Table -->
+        <div class="panel-card">
+          <div class="diario-filter-bar">
+            <div class="diario-filter-left">
+              <select class="form-control form-select" id="dir-diario-filtro-prof" style="min-width:160px;max-width:220px" onchange="renderDirDiario()">
+                <option value="">Todos os professores</option>
+              </select>
+              <select class="form-control form-select" id="dir-diario-filtro-turma" style="min-width:140px;max-width:180px" onchange="renderDirDiario()">
+                <option value="">Todas as turmas</option>
+              </select>
+              <div class="search-box-wrap" style="margin-bottom:0;min-width:180px;flex:1">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="search" class="form-control search-box" id="dir-diario-search" placeholder="Buscar conteúdo..." oninput="renderDirDiario()">
+              </div>
+            </div>
+            <div class="diario-filter-right">
+              <span class="badge badge-outline" id="dir-diario-filter-count">0 registros</span>
+            </div>
+          </div>
+          <!-- Table -->
+          <div class="table-scroll">
+            <table class="data-table diario-table">
+              <thead>
+                <tr>
+                  <th style="width:36px">#</th>
+                  <th style="min-width:100px"><i class="fa-regular fa-calendar"></i> Data</th>
+                  <th style="min-width:120px"><i class="fa-solid fa-chalkboard-user"></i> Professor</th>
+                  <th style="min-width:100px"><i class="fa-solid fa-chalkboard"></i> Turma</th>
+                  <th style="min-width:120px"><i class="fa-solid fa-book"></i> Disciplina</th>
+                  <th style="min-width:200px"><i class="fa-solid fa-pen-fancy"></i> Conteúdo Ministrado</th>
+                  <th style="min-width:60px" class="text-center"><i class="fa-solid fa-clock"></i> Aulas</th>
+                  <th><i class="fa-solid fa-comment-dots"></i> Observações</th>
+                </tr>
+              </thead>
+              <tbody id="dir-diario-tbody">
+                <tr><td colspan="8"><div class="shimmer shimmer-card"></div></td></tr>
               </tbody>
             </table>
           </div>
