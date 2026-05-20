@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { PageTransition, StatCard, Modal, EmptyState, showToast, confirm } from '@/components/ui/DashboardUI';
 import { saveDocument, removeDocument } from '@/lib/actions';
@@ -39,7 +39,7 @@ export default function CalendarioPage() {
   const [tipo, setTipo] = useState('evento');
   const [descricao, setDescricao] = useState('');
 
-  const eventos = dbGetAll<Record<string, unknown>>('eventos_calendario');
+  const eventos = dbGetAllEscola<Record<string, unknown>>('eventos_calendario');
   const days = useMemo(() => getMonthDays(year, month), [year, month]);
 
   const eventsForDay = (day: number) => {
@@ -179,7 +179,7 @@ export default function CalendarioPage() {
                     <div className="cal-event-date">
                       <i className={`fa-solid ${t.icon}`} style={{ color: t.color }} /> {formatDate(ev.data as string)} · {t.label}
                     </div>
-                    {ev.descricao && <div style={{ fontSize: '.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{ev.descricao as string}</div>}
+                    {!!ev.descricao && <div style={{ fontSize: '.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{ev.descricao as string}</div>}
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button className="btn btn-xs btn-ghost" onClick={() => openEdit(ev)}><i className="fa-solid fa-pen" /></button>

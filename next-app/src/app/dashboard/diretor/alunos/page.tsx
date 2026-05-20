@@ -1,17 +1,17 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { dbGetAll, dbFind } from '@/lib/data';
+import { dbGetAllEscola, dbFind } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { showToast, EmptyState, Modal, StatCard, PageTransition } from '@/components/ui/DashboardUI';
-import { saveDocument, removeDocument } from '@/lib/actions';
+import { saveDocument, removeDocument, logAuditoriaAction } from '@/lib/actions';
 import { confirm } from '@/components/ui/DashboardUI';
 import { generateBoletim } from '@/lib/reports';
 
 export default function DirAlunos() {
   useDataRefresh();
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
-  const alunos = dbGetAll<Record<string, unknown>>('alunos').filter(a => a.ativo);
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const alunos = dbGetAllEscola<Record<string, unknown>>('alunos').filter(a => a.ativo);
   const [busca, setBusca] = useState(''); const [filtroTurma, setFiltroTurma] = useState('');
   const [modal, setModal] = useState(false); const [editId, setEditId] = useState<string | null>(null);
   const [nome, setNome] = useState(''); const [matricula, setMatricula] = useState('');
@@ -28,12 +28,26 @@ export default function DirAlunos() {
 
   const handleSave = async () => {
     if (!nome || !turmaId) return;
-    await saveDocument('alunos', editId, { nome, matricula, cpf, turmaId, ativo: true });
+    const docId = await saveDocument('alunos', editId, { nome, matricula, cpf, turmaId, ativo: true });
+    await logAuditoriaAction(
+      docId,
+      editId ? 'editar_aluno' : 'cadastrar_aluno',
+      `Aluno ${nome} foi ${editId ? 'atualizado' : 'cadastrado'} no sistema.`
+    );
     showToast(editId ? 'Aluno atualizado!' : 'Aluno cadastrado!', 'success'); setModal(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (await confirm('Deseja excluir este aluno?')) { await removeDocument('alunos', id); showToast('Aluno excluído', 'success'); }
+    if (await confirm('Deseja excluir este aluno?')) {
+      const student = alunos.find(a => a.id === id);
+      await removeDocument('alunos', id);
+      await logAuditoriaAction(
+        id,
+        'excluir_aluno',
+        `Aluno ${student?.nome || id} foi removido do sistema.`
+      );
+      showToast('Aluno excluído', 'success');
+    }
   };
 
   return (

@@ -1,16 +1,16 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAll, dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { showToast, Modal, EmptyState, confirm, PageTransition, StatCard } from '@/components/ui/DashboardUI';
 import { saveDocument, removeDocument } from '@/lib/actions';
 
 export default function DirProfessores() {
   useDataRefresh();
-  const profs = dbGetAll<Record<string, unknown>>('professores').filter(p => p.ativo);
+  const profs = dbGetAllEscola<Record<string, unknown>>('professores').filter(p => p.ativo);
   const disciplinas = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
 
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);

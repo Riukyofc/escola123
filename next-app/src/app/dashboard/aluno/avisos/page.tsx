@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import { EmptyState, PageTransition } from '@/components/ui/DashboardUI';
@@ -15,7 +15,7 @@ export default function AlunoAvisos() {
   if (!session || !session.user) return null;
 
   const aluno = session.user;
-  const avisos = dbGetAll<Record<string, unknown>>('avisos')
+  const avisos = dbGetAllEscola<Record<string, unknown>>('avisos')
     .filter(a => a.ativo && (!a.turmaId || a.turmaId === aluno.turmaId))
     .sort((a, b) => String(b.dataCriacao || '').localeCompare(String(a.dataCriacao || '')));
 

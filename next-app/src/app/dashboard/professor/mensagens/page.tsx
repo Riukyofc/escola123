@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { PageTransition, EmptyState, showToast } from '@/components/ui/DashboardUI';
 import { saveDocument } from '@/lib/actions';
@@ -10,7 +10,7 @@ import { formatDateTime } from '@/lib/utils';
 export default function ProfMensagens() {
   useDataRefresh();
   const { session } = useAuth();
-  const mensagens = dbGetAll<Record<string, unknown>>('mensagens');
+  const mensagens = dbGetAllEscola<Record<string, unknown>>('mensagens');
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);

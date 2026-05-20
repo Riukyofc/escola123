@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { dbGetAll, dbFind, getConfig } from '@/lib/data';
+import { dbGetAll, dbFind, getConfig, dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { getNotaAnual, getGreeting, turnoIcon } from '@/lib/utils';
 import { WelcomeBanner, StatCard, PageTransition } from '@/components/ui/DashboardUI';
@@ -15,7 +15,7 @@ export default function AlunoInicio() {
   const turma = dbFind<Record<string, unknown>>('turmas', aluno.turmaId as string);
   const cfg = getConfig();
   const disciplinas = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
-  const notas = dbGetAll<Record<string, unknown>>('notas').filter(n => n.alunoId === aluno.id);
+  const notas = dbGetAllEscola<Record<string, unknown>>('notas').filter(n => n.alunoId === aluno.id);
 
   let totalAprov = 0, totalRep = 0;
   notas.forEach(n => {
@@ -23,7 +23,7 @@ export default function AlunoInicio() {
     if (anual !== null) { if (anual >= cfg.notaMinima) totalAprov++; else totalRep++; }
   });
 
-  const freqAll = dbGetAll<Record<string, unknown>>('frequencia').filter(f => f.turmaId === aluno.turmaId);
+  const freqAll = dbGetAllEscola<Record<string, unknown>>('frequencia').filter(f => f.turmaId === aluno.turmaId);
   let totalAulas = 0, presencas = 0;
   freqAll.forEach(f => {
     const aulas = (f.aulas as { alunoId: string; status: string }[]) || [];

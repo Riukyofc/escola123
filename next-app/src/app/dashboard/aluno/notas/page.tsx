@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { dbGetAll, dbFind, getConfig } from '@/lib/data';
+import { dbGetAll, dbFind, getConfig, dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { getNotaAnual } from '@/lib/utils';
 import { PageTransition } from '@/components/ui/DashboardUI';
@@ -15,7 +15,7 @@ export default function AlunoNotas() {
   const turma = dbFind<Record<string, unknown>>('turmas', aluno.turmaId as string);
   const cfg = getConfig();
   const disciplinas = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
-  const notas = dbGetAll<Record<string, unknown>>('notas').filter(n => n.alunoId === aluno.id);
+  const notas = dbGetAllEscola<Record<string, unknown>>('notas').filter(n => n.alunoId === aluno.id);
 
   const cell = (v: number | null) => {
     if (v === null) return <td className="text-center" style={{ color: 'var(--text-muted)' }}>—</td>;
@@ -34,11 +34,12 @@ export default function AlunoNotas() {
           <thead>
             <tr>
               <th>Disciplina</th>
-              <th className="text-center">1º Bimestre</th>
-              <th className="text-center">2º Bimestre</th>
-              <th className="text-center">3º Bimestre</th>
-              <th className="text-center">4º Bimestre</th>
-              <th className="text-center">Nota Anual</th>
+              <th className="text-center">1º Bim</th>
+              <th className="text-center">2º Bim</th>
+              <th className="text-center">3º Bim</th>
+              <th className="text-center">4º Bim</th>
+              <th className="text-center">Recuperação</th>
+              <th className="text-center">Média Final</th>
               <th className="text-center">Situação</th>
             </tr>
           </thead>
@@ -47,11 +48,13 @@ export default function AlunoNotas() {
               const nota = notas.find(n => n.disciplinaId === d.id);
               const b1 = (nota?.b1 as number) ?? null, b2 = (nota?.b2 as number) ?? null;
               const b3 = (nota?.b3 as number) ?? null, b4 = (nota?.b4 as number) ?? null;
-              const anual = getNotaAnual(b1, b2, b3, b4);
+              const rec = (nota?.recuperacao as number) ?? null;
+              const anual = getNotaAnual(b1, b2, b3, b4, rec);
               return (
                 <tr key={d.id as string}>
                   <td style={{ fontWeight: 600 }}>{d.nome as string}</td>
                   {cell(b1)}{cell(b2)}{cell(b3)}{cell(b4)}
+                  {cell(rec)}
                   <td className="text-center">
                     {anual !== null ? (
                       <span className={`nota-anual-badge ${anual >= cfg.notaMinima ? 'aprovado' : 'reprovado'}`}>

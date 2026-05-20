@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { PageTransition, EmptyState } from '@/components/ui/DashboardUI';
 import { formatDate } from '@/lib/utils';
@@ -32,7 +32,7 @@ export default function ProfCalendario() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const eventos = dbGetAll<Record<string, unknown>>('eventos_calendario');
+  const eventos = dbGetAllEscola<Record<string, unknown>>('eventos_calendario');
   const days = useMemo(() => getMonthDays(year, month), [year, month]);
 
   const eventsForDay = (day: number) => {

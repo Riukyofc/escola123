@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import { showToast, EmptyState, Modal, PageTransition } from '@/components/ui/DashboardUI';
@@ -9,8 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function DirAvisos() {
   useDataRefresh();
   const { session } = useAuth();
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
-  const avisos = dbGetAll<Record<string, unknown>>('avisos').filter(a => a.ativo).sort((a, b) => String(b.dataCriacao || '').localeCompare(String(a.dataCriacao || '')));
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const avisos = dbGetAllEscola<Record<string, unknown>>('avisos').filter(a => a.ativo).sort((a, b) => String(b.dataCriacao || '').localeCompare(String(a.dataCriacao || '')));
   const [modal, setModal] = useState(false); const [titulo, setTitulo] = useState(''); const [corpo, setCorpo] = useState('');
   const [tipo, setTipo] = useState('info'); const [turmaId, setTurmaId] = useState('');
   const tipoIcon: Record<string, string> = { info: 'fa-circle-info', urgente: 'fa-triangle-exclamation', sucesso: 'fa-circle-check', geral: 'fa-bullhorn' };

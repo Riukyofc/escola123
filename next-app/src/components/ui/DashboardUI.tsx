@@ -272,7 +272,7 @@ export function ConfirmDialog() {
         <button className="btn btn-danger" onClick={() => handle(true)}><i className="fa-solid fa-trash-can" /> Confirmar</button>
       </>}
     >
-      <p style={{ color: 'var(--text-muted)', fontSize: '.9rem', lineHeight: 1.6 }}>{state.msg}</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '.9rem', lineHeight: 1.6 }}>{state.msg}</p>
     </Modal>
   );
 }

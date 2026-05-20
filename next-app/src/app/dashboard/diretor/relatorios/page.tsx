@@ -1,5 +1,5 @@
 'use client';
-import { dbGetAll, getConfig } from '@/lib/data';
+import { dbGetAll, dbGetAllEscola, getConfig } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { getNotaAnual } from '@/lib/utils';
 import { StatCard, PageTransition } from '@/components/ui/DashboardUI';
@@ -8,9 +8,9 @@ import { generateRelatorioTurma, generateRelatorioFrequencia } from '@/lib/repor
 export default function DirRelatorios() {
   useDataRefresh();
   const cfg = getConfig();
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
-  const alunos = dbGetAll<Record<string, unknown>>('alunos').filter(a => a.ativo);
-  const notas = dbGetAll<Record<string, unknown>>('notas');
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const alunos = dbGetAllEscola<Record<string, unknown>>('alunos').filter(a => a.ativo);
+  const notas = dbGetAllEscola<Record<string, unknown>>('notas');
   const disciplinas = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
 
   // Calculate stats

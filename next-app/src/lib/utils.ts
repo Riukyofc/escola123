@@ -22,10 +22,23 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function getNotaAnual(b1: number | null, b2: number | null, b3: number | null, b4: number | null): number | null {
+export function getNotaAnual(
+  b1: number | null,
+  b2: number | null,
+  b3: number | null,
+  b4: number | null,
+  recuperacao?: number | null
+): number | null {
   if (b4 === null || b4 === undefined) return null;
   const notas = [b1, b2, b3, b4].map(n => parseFloat(String(n)) || 0);
-  return +(notas.reduce((a, b) => a + b, 0) / 4).toFixed(1);
+  const mediaAnual = +(notas.reduce((a, b) => a + b, 0) / 4).toFixed(1);
+  if (recuperacao !== null && recuperacao !== undefined) {
+    const recVal = parseFloat(String(recuperacao)) || 0;
+    if (recVal > mediaAnual) {
+      return recVal;
+    }
+  }
+  return mediaAnual;
 }
 
 export function isAprovado(notaAnual: number | null, notaMinima: number = 5.0): boolean | null {

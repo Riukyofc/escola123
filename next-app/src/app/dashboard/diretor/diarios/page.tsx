@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { dbGetAll, dbFind } from '@/lib/data';
+import { dbGetAllEscola, dbFind } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { showToast, Modal, EmptyState, StatCard, PageTransition, Badge } from '@/components/ui/DashboardUI';
 import { updateDocument } from '@/lib/actions';
@@ -9,9 +9,9 @@ import { formatDate } from '@/lib/utils';
 
 export default function DirDiarios() {
   useDataRefresh();
-  const diarios = dbGetAll<Record<string, unknown>>('diario').sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
-  const turmas = dbGetAll<Record<string, unknown>>('turmas');
-  const profs = dbGetAll<Record<string, unknown>>('professores');
+  const diarios = dbGetAllEscola<Record<string, unknown>>('diario').sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas');
+  const profs = dbGetAllEscola<Record<string, unknown>>('professores');
 
   const [filter, setFilter] = useState<'todos' | 'pendente' | 'aprovado' | 'rejeitado'>('todos');
   const [modal, setModal] = useState(false);

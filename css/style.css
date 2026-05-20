@@ -595,7 +595,7 @@ ul,ol { list-style:none; }
 }
 
 /* pub-section backgrounds */
-#pub-sobre   { background:var(--bg); padding-top:64px; }
+#pub-sobre   { background:var(--bg); padding-top:56px; }
 #pub-avisos  { background:var(--surface); }
 #pub-features{ background:var(--bg); }
 
@@ -1598,8 +1598,7 @@ ul,ol { list-style:none; }
   .footer-grid { grid-template-columns:1fr 1fr; }
   .footer-brand { grid-column:1/-1; }
 }
-@media (max-width:960px) {
-}
+
 @media (max-width:768px) {
   /* Sidebar to overlay */
   #dash-sidebar {
@@ -1709,25 +1708,86 @@ body.dark-mode {
   --shadow-card:    0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
   --shadow-lg:      0 8px 24px rgba(0,0,0,0.4);
 }
+/* ── Dark Mode: Header ──────────────────────────────────── */
 body.dark-mode #pub-header {
   background:rgba(15,23,42,0.92);
   border-color:rgba(255,255,255,0.06);
 }
+body.dark-mode #pub-header.scrolled {
+  background:rgba(15,23,42,0.97);
+  box-shadow:0 2px 24px rgba(0,0,0,0.4);
+}
 body.dark-mode .pub-nav-link { color:#cbd5e1; }
-body.dark-mode .pub-nav-link:hover { color:#f1f5f9; }
+body.dark-mode .pub-nav-link:hover { color:#f1f5f9; background:rgba(255,255,255,0.06); }
 body.dark-mode .school-name { color:#f1f5f9; }
 body.dark-mode .school-sub { color:#94a3b8; }
-body.dark-mode .feature-card { background:#1e293b; border-color:#334155; }
-body.dark-mode .feature-card:hover { border-color:#3b82f6; }
-body.dark-mode .testimonial-card { background:#1e293b; border-color:#334155; }
-body.dark-mode .aviso-card { background:#1e293b; border-color:#334155; }
-body.dark-mode .section-title { color:#f1f5f9; }
-body.dark-mode .section-subtitle { color:#94a3b8; }
-body.dark-mode .wave-divider svg path { fill:#0f172a; }
-body.dark-mode #pub-footer { background:#020617; }
-body.dark-mode .footer-logo-name { color:#f1f5f9; }
 body.dark-mode .pub-btn-login { background:linear-gradient(135deg,#2563eb,#3b82f6); }
 body.dark-mode .dark-toggle i { color:#fbbf24; }
+
+/* ── Dark Mode: Hamburger & Mobile Menu ─────────────────── */
+body.dark-mode .hamburger-btn { border-color:rgba(255,255,255,0.15); }
+body.dark-mode .hamburger-btn:hover { background:rgba(255,255,255,0.06); }
+body.dark-mode .hamburger-line { background:#cbd5e1; }
+body.dark-mode .pub-nav.mobile-open {
+  background:rgba(15,23,42,0.98);
+  border-color:rgba(255,255,255,0.08);
+  box-shadow:0 16px 40px rgba(0,0,0,0.5);
+}
+
+/* ── Dark Mode: Section Content ─────────────────────────── */
+body.dark-mode .section-title { color:#f1f5f9; }
+body.dark-mode .section-subtitle { color:#94a3b8; }
+body.dark-mode .section-chip { background:rgba(37,99,235,0.15); color:#93c5fd; }
+body.dark-mode .feature-card { background:#1e293b; border-color:#334155; }
+body.dark-mode .feature-card:hover { border-color:#3b82f6; }
+body.dark-mode .feature-card::after { background:linear-gradient(135deg,rgba(37,99,235,0.06) 0%,transparent 50%); }
+body.dark-mode .testimonial-card { background:#1e293b; border-color:#334155; }
+body.dark-mode .aviso-card { background:#1e293b; border-color:#334155; }
+
+/* ── Dark Mode: Wave Divider ────────────────────────────── */
+body.dark-mode .wave-divider svg path { fill:var(--bg); }
+
+/* ── Dark Mode: Impact Numbers Section ──────────────────── */
+body.dark-mode .impact-section {
+  background:linear-gradient(135deg,#020617 0%,#0f172a 100%);
+}
+
+/* ── Dark Mode: Gallery ─────────────────────────────────── */
+body.dark-mode .gallery-placeholder span { color:#94a3b8; }
+body.dark-mode .gallery-overlay { background:rgba(0,0,0,0.5); }
+
+/* ── Dark Mode: Team ────────────────────────────────────── */
+body.dark-mode .team-card { background:#1e293b; border-color:#334155; }
+body.dark-mode .team-card:hover { border-color:#3b82f6; }
+body.dark-mode .team-name { color:#f1f5f9; }
+body.dark-mode .team-role { color:#64748b; }
+body.dark-mode .team-desc { color:#94a3b8; }
+
+/* ── Dark Mode: Map ─────────────────────────────────────── */
+body.dark-mode .map-container { box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+body.dark-mode .map-container iframe { filter:brightness(0.85) contrast(1.1); }
+
+/* ── Dark Mode: Shimmer/Loading ──────────────────────────── */
+body.dark-mode .shimmer {
+  background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%);
+  background-size:200% 100%;
+}
+
+/* ── Dark Mode: Footer ──────────────────────────────────── */
+body.dark-mode #pub-footer { background:linear-gradient(135deg,#020617 0%,#0a0f1a 100%); }
+body.dark-mode .footer-logo-name { color:#f1f5f9; }
+
+/* ── Dark Mode: FAB Portal ──────────────────────────────── */
+body.dark-mode .fab-portal {
+  background:linear-gradient(135deg,#1e40af,#2563eb);
+  box-shadow:0 4px 20px rgba(37,99,235,0.5);
+}
+
+/* ── Dark Mode: Lightbox ────────────────────────────────── */
+body.dark-mode .lightbox-overlay { background:rgba(0,0,0,0.92); }
+
+/* ── Dark Mode: Mobile Menu Overlay ─────────────────────── */
+body.dark-mode .mobile-menu-overlay { background:rgba(0,0,0,0.5); }
 
 /* ── Skip Link (a11y) ─────────────────────────────────────── */
 .skip-link {
@@ -1868,6 +1928,39 @@ body.dark-mode .dark-toggle i { color:#fbbf24; }
   0%, 100% { box-shadow:0 4px 20px rgba(37,99,235,0.45), 0 0 0 0 rgba(37,99,235,0.3); }
   50% { box-shadow:0 4px 24px rgba(37,99,235,0.55), 0 0 0 10px rgba(37,99,235,0); }
 }
+@media (max-width:768px) {
+  .fab-portal { bottom:16px; right:16px; height:46px; padding:0 18px; font-size:0.82rem; }
+  .fab-portal span { display:none; }
+  .fab-portal { width:46px; padding:0; border-radius:50%; }
+}
+
+/* ── Scroll to Top Button ─────────────────────────────────── */
+.scroll-top-btn {
+  position:fixed; bottom:24px; left:24px; z-index:90;
+  width:44px; height:44px; border-radius:var(--r-full);
+  background:var(--surface); border:1.5px solid var(--border);
+  color:var(--text-secondary); font-size:1rem;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; pointer-events:none;
+  transform:translateY(12px);
+  transition:opacity 0.3s ease, transform 0.3s ease, background 0.15s ease;
+  box-shadow:var(--shadow-md);
+}
+.scroll-top-btn.visible { opacity:1; pointer-events:auto; transform:none; }
+.scroll-top-btn:hover { background:var(--secondary); color:#fff; border-color:var(--secondary); }
+body.dark-mode .scroll-top-btn { background:#1e293b; border-color:#334155; color:#94a3b8; }
+body.dark-mode .scroll-top-btn:hover { background:var(--secondary); color:#fff; border-color:var(--secondary); }
+@media (max-width:768px) {
+  .scroll-top-btn { bottom:16px; left:16px; width:40px; height:40px; }
+}
+
+/* ── Mobile Menu Overlay (index.html) ─────────────────────── */
+.mobile-menu-overlay {
+  display:none; position:fixed; inset:0; z-index:99;
+  background:rgba(15,35,71,0.3); backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.mobile-menu-overlay.active { display:block; }
 
 /* ── Dark Mode Toggle Button ──────────────────────────────── */
 .dark-toggle { font-size:1.1rem; padding:6px 10px !important; }

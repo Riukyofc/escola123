@@ -3,30 +3,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper: Get user roles ──
-    function getUserRoles() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
-    }
-
-    function isRole(role) {
-      return request.auth != null && role in getUserRoles();
-    }
-
-    function isAnyRole(roles) {
-      return request.auth != null && getUserRoles().hasAny(roles);
-    }
-
+    // ── Helper: Safe Auth Check ──
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // ── Escola info: read for all (public), write for diretor only ──
+    // ── Helper: Safe Role Extraction (Supports string, list, roles, role) ──
+    function getUserRoles() {
+      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roles', 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', [])
+          )
+        : [];
+    }
+
+    function isRole(role) {
+      return request.auth != null && (
+        (getUserRoles() is list && role in getUserRoles()) ||
+        (getUserRoles() is string && role == getUserRoles())
+      );
+    }
+
+    function isAnyRole(roles) {
+      return request.auth != null && (
+        (getUserRoles() is list && getUserRoles().hasAny(roles)) ||
+        (getUserRoles() is string && getUserRoles() in roles)
+      );
+    }
+
+    // ── Helper: Safe School Extraction (Supports string, list, escolaIds, escolaId) ──
+    function getUserEscolaIds() {
+      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('escolaIds', 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('escolaId', [])
+          )
+        : [];
+    }
+
+    function hasAccessToSchool(escolaId) {
+      return request.auth != null && (
+        (getUserEscolaIds() is list && (escolaId in getUserEscolaIds() || getUserEscolaIds() == [])) ||
+        (getUserEscolaIds() is string && (escolaId == getUserEscolaIds() || getUserEscolaIds() == ''))
+      );
+    }
+
+    // ── Escolas da Rede: read for authenticated, write for secretaria/diretor ──
+    match /escolas_rede/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Legacy: Escola info (mantido para compatibilidade) ──
     match /escola/{doc} {
       allow read: if true;
       allow write: if isAnyRole(['diretor', 'secretaria']);
     }
 
-    // ── Config: read for authenticated, write for diretor only ──
+    // ── Legacy: Config (mantido para compatibilidade) ──
     match /config/{doc} {
       allow read: if isAuthenticated();
       allow write: if isAnyRole(['diretor', 'secretaria']);
@@ -129,12 +162,6 @@ service cloud.firestore {
       allow write: if isAnyRole(['secretaria']);
     }
 
-    // ── SEMED: Escolas da Rede ──
-    match /escolas_rede/{id} {
-      allow read: if isAnyRole(['diretor', 'secretaria']);
-      allow write: if isAnyRole(['secretaria']);
-    }
-
     // ── Direção: Horários, Galeria, Equipe, Depoimentos (public read) ──
     match /horarios_aula/{id} {
       allow read: if true;
@@ -155,6 +182,39 @@ service cloud.firestore {
     match /eventos_calendario/{id} {
       allow read: if true;
       allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Phase 2: Academic structure (reference data) ──
+    match /modalidades_ensino/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+    match /niveis_ensino/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Phase 3: Carga Horária ──
+    match /registro_carga_horaria/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria', 'professor']);
+    }
+
+    // ── Phase 4: Dicionário INEP ──
+    match /dicionario_inep/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['secretaria']);
+    }
+
+    // ── Audit Logs: read for diretor/secretaria, write for all authenticated ──
+    match /audit_logs/{id} {
+      allow read: if isAnyRole(['diretor', 'secretaria']);
+      allow create: if isAuthenticated();
+    }
+
+    // ── Mensagens: read/write for all authenticated ──
+    match /mensagens/{id} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

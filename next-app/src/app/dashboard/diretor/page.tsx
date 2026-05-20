@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/AuthContext';
 import { WelcomeBanner, StatCard, PageTransition } from '@/components/ui/DashboardUI';
-import { dbGetAll, getConfig } from '@/lib/data';
+import { dbGetAll, dbGetAllEscola, getConfig } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { getNotaAnual } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -38,12 +38,12 @@ export default function DiretorInicio() {
   const { session } = useAuth();
   if (!session) return null;
   const cfg = getConfig();
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
-  const alunos = dbGetAll<Record<string, unknown>>('alunos').filter(a => a.ativo);
-  const profs = dbGetAll<Record<string, unknown>>('professores').filter(p => p.ativo);
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const alunos = dbGetAllEscola<Record<string, unknown>>('alunos').filter(a => a.ativo);
+  const profs = dbGetAllEscola<Record<string, unknown>>('professores').filter(p => p.ativo);
   const discs = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
-  const notas = dbGetAll<Record<string, unknown>>('notas');
-  const freq = dbGetAll<Record<string, unknown>>('frequencia');
+  const notas = dbGetAllEscola<Record<string, unknown>>('notas');
+  const freq = dbGetAllEscola<Record<string, unknown>>('frequencia');
 
   // ─── Alunos por turma ───
   const alunosPorTurma = turmas.map(t => alunos.filter(a => a.turmaId === t.id).length);

@@ -714,3 +714,173 @@ function loadSecAlunos() {
     </tr>`;
   }).join('');
 }
+
+// =============================================================
+// SEMED: PESQUISA INTELIGENTE GLOBAL
+// =============================================================
+let searchTimeout = null;
+function debounceSecPesquisa() {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    loadSecPesquisa();
+  }, 300);
+}
+
+function clearPesquisaFilters() {
+  const ids = [
+    'search-student-query',
+    'search-student-escola',
+    'search-student-turma',
+    'search-student-parent',
+    'search-student-profession',
+    'search-student-aee',
+    'search-student-modalidade',
+    'search-student-transporte',
+    'search-student-zona'
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  loadSecPesquisa();
+}
+
+function loadSecPesquisa() {
+  const escolaSel = document.getElementById('search-student-escola');
+  if (escolaSel && escolaSel.options.length <= 1) {
+    const escolas = dbGetAll('escolas_rede');
+    escolas.filter(e => e.ativa).forEach(e => {
+      escolaSel.innerHTML += `<option value="${esc(e.id)}">${esc(e.nomeAbreviado || e.nome)}</option>`;
+    });
+  }
+
+  const escolaId = escolaSel?.value || '';
+  const turmaSel = document.getElementById('search-student-turma');
+  
+  if (turmaSel) {
+    const prevVal = turmaSel.value;
+    turmaSel.innerHTML = '<option value="">Todas as turmas</option>';
+    let turmas = dbGetAll('turmas').filter(t => t.ativo);
+    if (escolaId) {
+      turmas = turmas.filter(t => t.escolaId === escolaId);
+    }
+    turmas.forEach(t => {
+      turmaSel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)} (${esc(t.turno)})</option>`;
+    });
+    if (prevVal && dbFind('turmas', prevVal) && (!escolaId || dbFind('turmas', prevVal).escolaId === escolaId)) {
+      turmaSel.value = prevVal;
+    }
+  }
+
+  const query = document.getElementById('search-student-query')?.value.toLowerCase() || '';
+  const turmaId = document.getElementById('search-student-turma')?.value || '';
+  const parentName = document.getElementById('search-student-parent')?.value.toLowerCase() || '';
+  const profession = document.getElementById('search-student-profession')?.value.toLowerCase() || '';
+  const aee = document.getElementById('search-student-aee')?.value || '';
+  const modalidade = document.getElementById('search-student-modalidade')?.value || '';
+  const transporte = document.getElementById('search-student-transporte')?.value || '';
+  const zona = document.getElementById('search-student-zona')?.value || '';
+
+  let list = dbGetAll('alunos').filter(a => a.ativo);
+
+  if (escolaId) {
+    list = list.filter(a => a.escolaId === escolaId);
+  }
+  if (turmaId) {
+    list = list.filter(a => a.turmaId === turmaId);
+  }
+  if (query) {
+    list = list.filter(a => 
+      a.nome.toLowerCase().includes(query) ||
+      (a.matricula && a.matricula.toLowerCase().includes(query)) ||
+      (a.cpf && a.cpf.replace(/[^\d]/g, '').includes(query.replace(/[^\d]/g, ''))) ||
+      (a.codigoINEP && String(a.codigoINEP).includes(query))
+    );
+  }
+  if (parentName) {
+    list = list.filter(a => 
+      (a.nomeMae && a.nomeMae.toLowerCase().includes(parentName)) ||
+      (a.nomePai && a.nomePai.toLowerCase().includes(parentName))
+    );
+  }
+  if (profession) {
+    list = list.filter(a => 
+      (a.profissaoMae && a.profissaoMae.toLowerCase().includes(profession)) ||
+      (a.profissaoPai && a.profissaoPai.toLowerCase().includes(profession))
+    );
+  }
+  if (aee) {
+    if (aee === 'sim') {
+      list = list.filter(a => (a.necessidadesEspeciais && a.necessidadesEspeciais.length > 0) || a.deficiencia);
+    } else if (aee === 'nao') {
+      list = list.filter(a => (!a.necessidadesEspeciais || a.necessidadesEspeciais.length === 0) && !a.deficiencia);
+    } else {
+      list = list.filter(a => a.deficiencia === aee || (a.necessidadesEspeciais && a.necessidadesEspeciais.includes(aee)));
+    }
+  }
+  if (modalidade) {
+    list = list.filter(a => {
+      const turma = dbFind('turmas', a.turmaId);
+      return turma && turma.modalidadeId === modalidade;
+    });
+  }
+  if (transporte) {
+    list = list.filter(a => a.transporte === transporte);
+  }
+  if (zona) {
+    list = list.filter(a => a.zona === zona);
+  }
+
+  const tbody = document.getElementById('search-student-tbody');
+  const countEl = document.getElementById('search-student-count');
+  
+  if (countEl) {
+    countEl.textContent = `${list.length} aluno${list.length !== 1 ? 's' : ''}`;
+  }
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:40px; color:var(--text-muted)"><i class="fa-solid fa-magnifying-glass" style="font-size:2rem; margin-bottom:10px; display:block"></i>Nenhum aluno encontrado com os filtros informados.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(a => {
+    const escola = dbFind('escolas_rede', a.escolaId);
+    const turma = dbFind('turmas', a.turmaId);
+    const aeeText = a.deficiencia ? `<span class="badge badge-red">${esc(a.deficiencia.toUpperCase())}</span>` : 
+                    ((a.necessidadesEspeciais && a.necessidadesEspeciais.length > 0) ? `<span class="badge badge-yellow">AEE</span>` : 'Regular');
+    
+    const maeText = a.nomeMae ? `<div><span style="font-weight:600; color:var(--text)">Mãe:</span> ${esc(a.nomeMae)}</div>` : '';
+    const paiText = a.nomePai ? `<div><span style="font-weight:600; color:var(--text)">Pai:</span> ${esc(a.nomePai)}</div>` : '';
+
+    const maeProf = a.profissaoMae ? `<div><span style="font-weight:600; color:var(--text)">Mãe:</span> ${esc(a.profissaoMae)}</div>` : '';
+    const paiProf = a.profissaoPai ? `<div><span style="font-weight:600; color:var(--text)">Pai:</span> ${esc(a.profissaoPai)}</div>` : '';
+
+    return `<tr>
+      <td>
+        <div style="font-weight:700; color:var(--text)">${esc(a.nome)}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted)">Matrícula: ${esc(a.matricula)}</div>
+      </td>
+      <td>
+        <div style="font-weight:500">${escola ? esc(escola.nomeAbreviado || escola.nome) : '—'}</div>
+      </td>
+      <td>
+        <div>${turma ? `<span class="badge badge-blue">${esc(turma.nome)}</span>` : '—'}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${turma ? esc(turma.turno) : ''}</div>
+      </td>
+      <td style="font-size:0.8rem; color:var(--text-secondary)">
+        ${maeText}
+        ${paiText}
+      </td>
+      <td style="font-size:0.8rem; color:var(--text-secondary)">
+        ${maeProf}
+        ${paiProf}
+      </td>
+      <td>
+        ${aeeText}
+      </td>
+      <td class="text-right">
+        <button class="btn btn-sm btn-ghost" data-id="${a.id}" onclick="editAluno('${a.id}')" title="Editar Aluno"><i class="fa-solid fa-pen"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}

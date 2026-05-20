@@ -150,12 +150,12 @@
 <!-- Wave divider -->
 <div class="wave-divider">
   <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-    <path d="M0 60L48 52C96 44 192 28 288 24C384 20 480 28 576 36C672 44 768 52 864 48C960 44 1056 28 1152 20C1248 12 1344 12 1392 12L1440 12V60H0Z" fill="#f0f4f8"/>
+    <path d="M0 60L48 52C96 44 192 28 288 24C384 20 480 28 576 36C672 44 768 52 864 48C960 44 1056 28 1152 20C1248 12 1344 12 1392 12L1440 12V60H0Z" fill="var(--bg, #f0f4f8)"/>
   </svg>
 </div>
 
 <!-- ════════════ SOBRE ════════════ -->
-<section id="pub-sobre" class="pub-section" style="background: var(--bg); padding-top: 56px;">
+<section id="pub-sobre" class="pub-section">
   <div class="section-inner">
     <div class="section-header reveal">
       <div class="section-chip"><i class="fa-solid fa-school"></i> Nossa Escola</div>
@@ -252,7 +252,7 @@
 </section>
 
 <!-- ════════════ DEPOIMENTOS ════════════ -->
-<section id="pub-depoimentos" class="pub-section" style="background: var(--surface);">
+<section id="pub-depoimentos" class="pub-section" style="background: var(--bg);">
   <div class="section-inner">
     <div class="section-header reveal">
       <div class="section-chip" style="background:var(--purple-light); color:var(--purple)">
@@ -282,9 +282,9 @@
 </section>
 
 <!-- Lightbox -->
-<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()"><i class="fa-solid fa-xmark"></i></button>
-  <div class="lightbox-content" id="lightbox-content"></div>
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()" role="dialog" aria-modal="true" aria-label="Visualizar imagem">
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="Fechar visualização"><i class="fa-solid fa-xmark"></i></button>
+  <div class="lightbox-content" id="lightbox-content" onclick="event.stopPropagation()"></div>
 </div>
 
 <!-- ════════════ NÚMEROS DE IMPACTO ════════════ -->
@@ -404,12 +404,16 @@
 
   // ── Mobile menu
   function toggleMobileMenu() {
-    document.getElementById('hamburgerBtn').classList.toggle('active');
-    document.getElementById('pubNav').classList.toggle('mobile-open');
+    const isOpen = document.getElementById('pubNav').classList.toggle('mobile-open');
+    document.getElementById('hamburgerBtn').classList.toggle('active', isOpen);
+    const overlay = document.getElementById('mobileMenuOverlay');
+    if (overlay) overlay.classList.toggle('active', isOpen);
   }
   function closeMobileMenu() {
     document.getElementById('hamburgerBtn').classList.remove('active');
     document.getElementById('pubNav').classList.remove('mobile-open');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    if (overlay) overlay.classList.remove('active');
   }
 
   // ── Counter animation
@@ -435,13 +439,15 @@
     document.querySelectorAll('.reveal:not(.active)').forEach(el => obs.observe(el));
   }
 
-  // ── Particles Canvas
+  // ── Particles Canvas (optimized: pauses when hero not visible)
   function initParticles() {
     const canvas = document.getElementById('heroParticles');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let particles = [];
     const PARTICLE_COUNT = 60;
+    let animating = true;
+    let rafId = null;
 
     function resize() {
       const hero = document.getElementById('pub-hero');
@@ -463,6 +469,7 @@
     }
 
     function draw() {
+      if (!animating) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       particles.forEach((p, i) => {
         p.x += p.dx; p.y += p.dy;
@@ -488,7 +495,22 @@
           }
         }
       });
-      requestAnimationFrame(draw);
+      rafId = requestAnimationFrame(draw);
+    }
+
+    // Pause particles when hero is not visible (saves CPU)
+    const heroEl = document.getElementById('pub-hero');
+    if ('IntersectionObserver' in window && heroEl) {
+      new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            if (!animating) { animating = true; draw(); }
+          } else {
+            animating = false;
+            if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+          }
+        });
+      }, { threshold: 0 }).observe(heroEl);
     }
     draw();
   }
@@ -595,16 +617,34 @@
     }
   }
 
-  // ── Impact counters
+  // ── Impact counters (animate on scroll visibility)
+  let impactAnimated = false;
   function loadImpactCounters() {
+    const section = document.getElementById('pub-numeros');
+    if (!section) return;
     const turmas = dbGetAll('turmas').filter(t => t.ativo);
     const alunos = dbGetAll('alunos').filter(a => a.ativo);
     const profs  = dbGetAll('professores').filter(p => p.ativo);
     const discs  = dbGetAll('disciplinas').filter(d => d.ativo);
-    animateCounter('impact-alunos', alunos.length);
-    animateCounter('impact-turmas', turmas.length);
-    animateCounter('impact-profs',  profs.length);
-    animateCounter('impact-discs',  discs.length);
+
+    function doAnimate() {
+      if (impactAnimated) return;
+      impactAnimated = true;
+      animateCounter('impact-alunos', alunos.length);
+      animateCounter('impact-turmas', turmas.length);
+      animateCounter('impact-profs',  profs.length);
+      animateCounter('impact-discs',  discs.length);
+    }
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries, obs) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { doAnimate(); obs.unobserve(e.target); }
+        });
+      }, { threshold: 0.2 }).observe(section);
+    } else {
+      doAnimate();
+    }
   }
 
   // ── Lightbox Gallery
@@ -680,6 +720,12 @@
     initReveal();
   }
 
+  // ── Scroll to Top button
+  window.addEventListener('scroll', () => {
+    const btn = document.getElementById('scrollTopBtn');
+    if (btn) btn.classList.toggle('visible', window.scrollY > 400);
+  });
+
   // ── Service Worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -708,6 +754,14 @@
   <i class="fa-solid fa-right-to-bracket"></i>
   <span>Acessar Portal</span>
 </a>
+
+<!-- Scroll to Top -->
+<button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Voltar ao topo">
+  <i class="fa-solid fa-chevron-up"></i>
+</button>
+
+<!-- Mobile Menu Overlay -->
+<div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
 
 </body>
 </html>

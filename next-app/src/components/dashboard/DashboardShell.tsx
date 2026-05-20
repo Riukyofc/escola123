@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { getConfig, isSistemaClosed, dbGetAll } from '@/lib/data';
+import { getConfig, isSistemaClosed, dbGetAll, getEscolaAtiva, setEscolaAtiva, getEscolaInfo, onCacheChange, dbFind } from '@/lib/data';
 import SearchPalette from './SearchPalette';
 import NotificationPanel from './NotificationPanel';
+import type { EscolaRede } from '@/lib/types';
 
 const NAV: Record<string, { path: string; icon: string; label: string; sub: string }[]> = {
   aluno: [
@@ -31,8 +32,10 @@ const NAV: Record<string, { path: string; icon: string; label: string; sub: stri
     { path: '/dashboard/diretor', icon: 'fa-gauge-high', label: 'Dashboard', sub: 'Visão geral da escola' },
     { path: '/dashboard/diretor/alunos', icon: 'fa-user-graduate', label: 'Alunos', sub: 'Cadastro de alunos' },
     { path: '/dashboard/diretor/professores', icon: 'fa-chalkboard-user', label: 'Professores', sub: 'Cadastro de professores' },
+    { path: '/dashboard/diretor/logins', icon: 'fa-user-shield', label: 'Controle de Acesso', sub: 'Gerenciar cargos e logins' },
     { path: '/dashboard/diretor/turmas', icon: 'fa-chalkboard', label: 'Turmas', sub: 'Salas e turnos' },
     { path: '/dashboard/diretor/horarios', icon: 'fa-clock', label: 'Horários', sub: 'Grade semanal de aulas' },
+    { path: '/dashboard/diretor/cargahoraria', icon: 'fa-business-time', label: 'Carga Horária', sub: 'Auditoria de horas letivas' },
     { path: '/dashboard/diretor/calendario', icon: 'fa-calendar-days', label: 'Calendário', sub: 'Eventos escolares' },
     { path: '/dashboard/diretor/diarios', icon: 'fa-book-open', label: 'Diários', sub: 'Aprovar diários de classe' },
     { path: '/dashboard/diretor/relatorios', icon: 'fa-chart-pie', label: 'Relatórios', sub: 'Notas e desempenho' },
@@ -40,11 +43,16 @@ const NAV: Record<string, { path: string; icon: string; label: string; sub: stri
     { path: '/dashboard/diretor/conteudo', icon: 'fa-palette', label: 'Conteúdo do Site', sub: 'Equipe, galeria e depoimentos' },
     { path: '/dashboard/diretor/circulares', icon: 'fa-scroll', label: 'Circulares SEMED', sub: 'Ofícios e resoluções' },
     { path: '/dashboard/diretor/avisos', icon: 'fa-bell', label: 'Avisos', sub: 'Comunicados gerais' },
+    { path: '/dashboard/diretor/cursos', icon: 'fa-graduation-cap', label: 'Cursos & Níveis', sub: 'Modalidades de ensino' },
+    { path: '/dashboard/diretor/historico', icon: 'fa-clock-rotate-left', label: 'Histórico de Registros', sub: 'Logs de auditoria' },
     { path: '/dashboard/diretor/config', icon: 'fa-sliders', label: 'Configurações', sub: 'Dados e senhas' },
   ],
   secretaria: [
     { path: '/dashboard/semed', icon: 'fa-building-columns', label: 'Dashboard', sub: 'Visão macro da educação' },
     { path: '/dashboard/semed/escolas', icon: 'fa-school', label: 'Escolas da Rede', sub: 'Cadastro e gestão' },
+    { path: '/dashboard/semed/cadastros', icon: 'fa-table', label: 'Cadastro Global', sub: 'Alunos, Servidores e Filiações' },
+    { path: '/dashboard/semed/logins', icon: 'fa-user-shield', label: 'Controle de Acesso', sub: 'Gerenciar cargos e logins' },
+    { path: '/dashboard/semed/planejamentos', icon: 'fa-book-open', label: 'Auditoria de Planos', sub: 'Acompanhar planejamentos' },
     { path: '/dashboard/semed/financeiro', icon: 'fa-money-bill-wave', label: 'Financeiro', sub: 'Repasses e merenda' },
     { path: '/dashboard/semed/indicadores', icon: 'fa-chart-line', label: 'Indicadores', sub: 'Censo e rendimento' },
     { path: '/dashboard/semed/circulares', icon: 'fa-scroll', label: 'Circulares', sub: 'Ofícios e resoluções' },
@@ -62,6 +70,16 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [darkMode, setDarkMode] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [escolaInfo, setEscolaInfo] = useState(() => getEscolaInfo());
+  const [escolaAtiva, setEscolaAtivaState] = useState(() => getEscolaAtiva());
+
+  // Subscribe to changes in active school / data cache
+  useEffect(() => {
+    return onCacheChange(() => {
+      setEscolaInfo(getEscolaInfo());
+      setEscolaAtivaState(getEscolaAtiva());
+    });
+  }, []);
 
   // Initialize dark mode from localStorage
   useEffect(() => {
@@ -72,6 +90,47 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       document.body.classList.add('dark-mode');
     }
   }, []);
+
+  // Synchronize active school for restricted users (like students or single-school staff)
+  useEffect(() => {
+    if (!session) return;
+    
+    let targetSchoolId: string | null = null;
+    const currentEscola = escolaAtiva || '';
+
+    const areSchoolsEquivalent = (id1: string, id2: string): boolean => {
+      if (id1 === id2) return true;
+      const map: Record<string, string> = {
+        'esc01': 'ueedithnair',
+        'ueedithnair': 'esc01',
+        'esc02': 'uemanoel',
+        'uemanoel': 'esc02',
+        'esc03': 'uesaojoao',
+        'uesaojoao': 'esc03'
+      };
+      return map[id1] === id2;
+    };
+    
+    if (session.role === 'aluno' && session.user) {
+      const studentClass = dbFind<Record<string, any>>('turmas', session.user.turmaId as string);
+      targetSchoolId = (session.user.escolaId as string) || (studentClass?.escolaId as string);
+    } else if (session.role === 'professor' || session.role === 'diretor') {
+      const profEscolas = session.userData?.escolaIds as string[] | undefined;
+      if (profEscolas && profEscolas.length > 0) {
+        const isAuthorized = profEscolas.some(eid => areSchoolsEquivalent(eid, currentEscola));
+        if (!currentEscola || currentEscola === 'semed' || !isAuthorized) {
+          targetSchoolId = profEscolas[0];
+        }
+      }
+    }
+    
+    if (targetSchoolId && !areSchoolsEquivalent(targetSchoolId, currentEscola)) {
+      setEscolaAtiva(targetSchoolId);
+      setTimeout(() => {
+        window.location.reload();
+      }, 50);
+    }
+  }, [session, escolaAtiva]);
 
   const toggleDarkMode = useCallback(() => {
     setDarkMode(prev => {
@@ -97,7 +156,51 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   if (!session) return null;
 
-  const navItems = NAV[session.role] || [];
+  const schools = dbGetAll<EscolaRede>('escolas_rede');
+  const userEscolas = session.userData?.escolaIds 
+    ? schools.filter(s => (session.userData.escolaIds as string[]).includes(s.id))
+    : (session.role === 'secretaria' || session.role === 'diretor' ? schools : schools.filter(s => s.id === escolaAtiva));
+
+  let navItems = NAV[session.role] || [];
+  if (session.role === 'secretaria') {
+    if (!escolaAtiva || escolaAtiva === 'semed') {
+      navItems = [
+        { path: '/dashboard/semed', icon: 'fa-building-columns', label: 'Dashboard', sub: 'Visão macro da rede' },
+        { path: '/dashboard/semed/pesquisa', icon: 'fa-magnifying-glass', label: 'Pesquisa Inteligente', sub: 'Busca inteligente global' },
+        { path: '/dashboard/semed/escolas', icon: 'fa-school', label: 'Escolas da Rede', sub: 'Cadastro e gestão' },
+        { path: '/dashboard/diretor/alunos', icon: 'fa-user-graduate', label: 'Alunos (Geral)', sub: 'Todos os alunos da rede' },
+        { path: '/dashboard/diretor/professores', icon: 'fa-chalkboard-user', label: 'Professores (Geral)', sub: 'Todos os professores' },
+        { path: '/dashboard/diretor/turmas', icon: 'fa-chalkboard', label: 'Turmas (Geral)', sub: 'Todas as turmas da rede' },
+        { path: '/dashboard/diretor/cargahoraria', icon: 'fa-business-time', label: 'Carga Horária (Geral)', sub: 'Auditoria de horas' },
+        { path: '/dashboard/diretor/diarios', icon: 'fa-book-open', label: 'Diários (Geral)', sub: 'Aprovar diários de classe' },
+        { path: '/dashboard/semed/planejamentos', icon: 'fa-book-open', label: 'Auditoria de Planos', sub: 'Acompanhar planejamentos' },
+        { path: '/dashboard/semed/financeiro', icon: 'fa-money-bill-wave', label: 'Financeiro', sub: 'Repasses e merenda' },
+        { path: '/dashboard/semed/circulares', icon: 'fa-scroll', label: 'Circulares', sub: 'Ofícios e resoluções' },
+        { path: '/dashboard/semed/indicadores', icon: 'fa-chart-line', label: 'Indicadores', sub: 'Censo e rendimento' },
+        { path: '/dashboard/diretor/historico', icon: 'fa-clock-rotate-left', label: 'Histórico (Geral)', sub: 'Logs globais de auditoria' },
+        { path: '/dashboard/semed/cadastros', icon: 'fa-table', label: 'Cadastro Global', sub: 'Planilhas gerais' },
+        { path: '/dashboard/semed/logins', icon: 'fa-user-shield', label: 'Controle de Acesso', sub: 'Gerenciar cargos e logins' },
+      ];
+    } else {
+      navItems = [
+        { path: '/dashboard/semed', icon: 'fa-gauge-high', label: 'Dashboard Escola', sub: 'Visão da escola ativa' },
+        { path: '/dashboard/diretor/alunos', icon: 'fa-user-graduate', label: 'Alunos', sub: 'Alunos da escola' },
+        { path: '/dashboard/diretor/professores', icon: 'fa-chalkboard-user', label: 'Professores', sub: 'Professores da escola' },
+        { path: '/dashboard/diretor/turmas', icon: 'fa-chalkboard', label: 'Turmas', sub: 'Turmas da escola' },
+        { path: '/dashboard/diretor/horarios', icon: 'fa-clock', label: 'Horários', sub: 'Grade de aulas' },
+        { path: '/dashboard/diretor/cargahoraria', icon: 'fa-business-time', label: 'Carga Horária', sub: 'Carga horária letiva' },
+        { path: '/dashboard/diretor/calendario', icon: 'fa-calendar-days', label: 'Calendário', sub: 'Eventos escolares' },
+        { path: '/dashboard/diretor/diarios', icon: 'fa-book-open', label: 'Diários de Classe', sub: 'Visualizar diários' },
+        { path: '/dashboard/diretor/relatorios', icon: 'fa-chart-pie', label: 'Relatórios', sub: 'Desempenho' },
+        { path: '/dashboard/diretor/historico', icon: 'fa-clock-rotate-left', label: 'Histórico de Registros', sub: 'Logs de auditoria' },
+        { path: '/dashboard/semed/financeiro', icon: 'fa-money-bill-wave', label: 'Financeiro', sub: 'Repasses e merenda' },
+        { path: '/dashboard/semed/circulares', icon: 'fa-scroll', label: 'Circulares', sub: 'Ofícios e resoluções' },
+        { path: '/dashboard/semed/indicadores', icon: 'fa-chart-line', label: 'Indicadores', sub: 'Censo e rendimento' },
+        { path: '/dashboard/semed/pesquisa', icon: 'fa-magnifying-glass', label: 'Pesquisa Inteligente', sub: 'Busca inteligente global' },
+      ];
+    }
+  }
+
   const currentNav = navItems.find(n => n.path === pathname) || navItems[0];
   const closed = isSistemaClosed();
   const initial = session.name.charAt(0).toUpperCase();
@@ -113,7 +216,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <div className="sidebar-logo">
             <div className="sidebar-logo-icon"><i className="fa-solid fa-school" /></div>
             <div className="sidebar-logo-text">
-              <div className="s-name">Edith Nair</div>
+              <div className="s-name">{escolaInfo.nomeAbreviado || escolaInfo.nome}</div>
               <div className="s-sub">Portal Escolar</div>
               <div className="sidebar-semed">SEMED · Viana·MA</div>
             </div>
@@ -133,6 +236,51 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </div>
         </div>
+
+        {(userEscolas.length > 1 || session.role === 'secretaria') && (
+          <div className="sidebar-school-select-container" style={{ padding: '0 16px 12px 16px' }}>
+            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', fontWeight: 600 }}>
+              Escola Ativa
+            </div>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={escolaAtiva || 'semed'}
+                onChange={(e) => {
+                  setEscolaAtiva(e.target.value);
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 50);
+                }}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  padding: '8px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none'
+                }}
+              >
+                {session.role === 'secretaria' && (
+                  <option value="semed" style={{ background: '#0e1726', color: '#fff' }}>
+                    SEMED (Geral da Rede)
+                  </option>
+                )}
+                {userEscolas.map(s => (
+                  <option key={s.id} value={s.id} style={{ background: '#0e1726', color: '#fff' }}>
+                    {s.nomeAbreviado || s.nome}
+                  </option>
+                ))}
+              </select>
+              <i className="fa-solid fa-chevron-down" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', pointerEvents: 'none' }} />
+            </div>
+          </div>
+        )}
 
         <nav className="sidebar-nav">
           <div className="sidebar-section-title">Menu</div>

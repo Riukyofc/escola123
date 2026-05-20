@@ -3,14 +3,48 @@
 import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
 import { generateId } from './utils';
-import { cacheAdd, cacheUpdate, cacheRemove, cacheSingleton } from './data';
+import { cacheAdd, cacheUpdate, cacheRemove, cacheSingleton, getEscolaAtiva } from './data';
 
 const db = () => getFirebaseDb();
+
+// ─── AUDIT LOGS UTILITY ─────────────────────────
+export async function logAuditoriaAction(alunoId: string | null, acao: string, detalhe: string) {
+  const logId = generateId('log');
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem('usuarioLogado') || 'Anonymous' : 'Server';
+  let userId = 'unknown';
+  try {
+    const userObj = JSON.parse(userStr);
+    userId = userObj.email || userObj.id || 'Anonymous';
+  } catch (e) {
+    userId = userStr;
+  }
+  
+  const logData = {
+    id: logId,
+    alunoId,
+    acao,
+    detalhe,
+    usuarioId: userId,
+    dataHora: new Date().toISOString(),
+    escolaId: getEscolaAtiva() || 'system'
+  };
+
+  await setDoc(doc(db(), 'audit_logs', logId), logData);
+  cacheAdd('audit_logs', logData);
+}
 
 // ─── GENERIC CRUD ────────────────────────────────
 export async function saveDocument(col: string, id: string | null, data: Record<string, unknown>) {
   const docId = id || generateId(col.slice(0, 3));
+  const activeSchoolId = getEscolaAtiva();
+  
+  const tenantScopedCollections = ['alunos', 'professores', 'turmas', 'avisos', 'eventos_calendario', 'horarios_aula', 'registro_carga_horaria'];
+  
   const fullData = { ...data, id: docId };
+  if (tenantScopedCollections.includes(col) && activeSchoolId && !(fullData as any).escolaId) {
+    (fullData as any).escolaId = activeSchoolId;
+  }
+
   await setDoc(doc(db(), col, docId), fullData, { merge: true });
   if (id) {
     cacheUpdate(col, docId, fullData);
@@ -44,10 +78,29 @@ export async function toggleSistema(closed: boolean) {
   });
 }
 
-export async function saveNota(alunoId: string, disciplinaId: string, bimestre: number, valor: number) {
+export async function saveNota(
+  alunoId: string,
+  disciplinaId: string,
+  bimestre: number,
+  valor: number,
+  parciais?: { n1?: number | null; n2?: number | null; n3?: number | null; n4?: number | null }
+) {
   const id = `${alunoId}_${disciplinaId}`;
   const key = `b${bimestre}`;
-  const data = { id, alunoId, disciplinaId, [key]: valor };
+  const data: Record<string, any> = { id, alunoId, disciplinaId, [key]: valor };
+  if (parciais) {
+    data[`b${bimestre}_n1`] = parciais.n1 ?? null;
+    data[`b${bimestre}_n2`] = parciais.n2 ?? null;
+    data[`b${bimestre}_n3`] = parciais.n3 ?? null;
+    data[`b${bimestre}_n4`] = parciais.n4 ?? null;
+  }
+  await setDoc(doc(db(), 'notas', id), data, { merge: true });
+  cacheUpdate('notas', id, data);
+}
+
+export async function saveRecuperacao(alunoId: string, disciplinaId: string, valor: number) {
+  const id = `${alunoId}_${disciplinaId}`;
+  const data = { id, alunoId, disciplinaId, recuperacao: valor };
   await setDoc(doc(db(), 'notas', id), data, { merge: true });
   cacheUpdate('notas', id, data);
 }

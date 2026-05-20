@@ -38,6 +38,7 @@
   --bg:             #f1f5f9;
   --bg-alt:         #e8edf4;
   --surface:        #ffffff;
+  --panel-bg:       #ffffff;
   --surface-2:      #f8fafc;
   --surface-3:      #f1f5f9;
   --border:         #e2e8f0;
@@ -45,6 +46,7 @@
 
   /* Text */
   --text:           #0f172a;
+  --text-main:      #0f172a;
   --text-secondary: #475569;
   --text-muted:     #94a3b8;
   --text-inverse:   #ffffff;
@@ -97,7 +99,7 @@
 
 #dashboard-app img, #login-screen img { max-width:100%; display:block; }
 #dashboard-app a, #login-screen a { text-decoration:none; color:inherit; }
-#dashboard-app button, #login-screen button { cursor:pointer; font-family:inherit; border:none; background:none; }
+#dashboard-app button:not(.btn), #login-screen button:not(.btn) { cursor:pointer; font-family:inherit; border:none; background:none; }
 #dashboard-app input, #dashboard-app textarea, #dashboard-app select, #login-screen input { font-family:inherit; font-size:16px; }
 #dashboard-app ul, #dashboard-app ol { list-style:none; }
 
@@ -1054,11 +1056,13 @@ body.dark-mode {
   --bg:             #0f172a;
   --bg-alt:         #1e293b;
   --surface:        #1e293b;
+  --panel-bg:       #1e293b;
   --surface-2:      #1e293b;
   --surface-3:      #0f172a;
   --border:         #334155;
   --border-dark:    #475569;
   --text:           #f1f5f9;
+  --text-main:      #f1f5f9;
   --text-secondary: #cbd5e1;
   --text-muted:     #64748b;
   --shadow-card:    0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
@@ -2076,14 +2080,16 @@ body.dark-mode .dark-toggle i { color:#fbbf24; }
   transform: translateY(-1px);
 }
 .btn-ghost {
-  background: transparent;
+  background: var(--surface-2);
   color: var(--text-secondary);
+  border: 1px solid var(--border-dark);
   padding: 8px 14px;
 }
 .btn-ghost::after { display: none; }
 .btn-ghost:hover {
   background: var(--surface-3);
   color: var(--text);
+  border-color: var(--text-muted);
 }
 .btn-sm { padding: 6px 12px; font-size: .78rem; }
 .btn-xs { padding: 4px 8px; font-size: .72rem; border-radius: var(--r-sm); }
@@ -2466,7 +2472,7 @@ textarea.form-control {
   margin-bottom: 2px;
 }
 .notif-item-desc {
-  font-size: .75rem; color: var(--text-muted); line-height: 1.4;
+  font-size: .75rem; color: var(--text-secondary); line-height: 1.4;
 }
 .notif-item-time {
   font-size: .65rem; color: var(--text-muted); margin-top: 4px;

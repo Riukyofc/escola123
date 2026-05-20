@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAll, dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { showToast, Modal, PageTransition } from '@/components/ui/DashboardUI';
 import { saveDocument } from '@/lib/actions';
@@ -15,10 +15,10 @@ interface HorarioDoc { id: string; turmaId: string; diaSemana: string; aulas: Au
 
 export default function DirHorarios() {
   useDataRefresh();
-  const turmas = dbGetAll<Record<string, unknown>>('turmas').filter(t => t.ativo);
-  const profs = dbGetAll<Record<string, unknown>>('professores').filter(p => p.ativo);
+  const turmas = dbGetAllEscola<Record<string, unknown>>('turmas').filter(t => t.ativo);
+  const profs = dbGetAllEscola<Record<string, unknown>>('professores').filter(p => p.ativo);
   const disciplinas = dbGetAll<Record<string, unknown>>('disciplinas').filter(d => d.ativo);
-  const horarios = dbGetAll<HorarioDoc>('horarios_aula');
+  const horarios = dbGetAllEscola<HorarioDoc>('horarios_aula');
 
   const [selTurma, setSelTurma] = useState('');
   const [modal, setModal] = useState(false);

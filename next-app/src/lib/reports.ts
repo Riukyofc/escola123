@@ -21,13 +21,13 @@ function addHeader(doc: any, title: string) {
   doc.rect(0, 0, 210, 28, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(nomeEscola, 14, 12);
   doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text('SEMED · Viana — MA', 14, 18);
   doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(title, 14, 24);
   
   // Reset colors
@@ -61,9 +61,9 @@ export async function generateBoletim(alunoId: string) {
   
   let y = 36;
   doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(`Aluno(a): ${aluno.nome}`, 14, y); y += 6;
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(`Matrícula: ${aluno.matricula} | Turma: ${turma?.nome || '—'} | Turno: ${turma?.turno || '—'}`, 14, y); y += 10;
   
   const tableData = disciplinas.map(d => {

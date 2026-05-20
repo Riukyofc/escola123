@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { dbGetAll } from '@/lib/data';
+import { dbGetAllEscola } from '@/lib/data';
 import { useDataRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import { EmptyState, PageTransition } from '@/components/ui/DashboardUI';
@@ -12,7 +12,7 @@ export default function AlunoFrequencia() {
   if (!session || !session.user) return null;
 
   const aluno = session.user;
-  const freqAll = dbGetAll<Record<string, unknown>>('frequencia').filter(f => f.turmaId === aluno.turmaId);
+  const freqAll = dbGetAllEscola<Record<string, unknown>>('frequencia').filter(f => f.turmaId === aluno.turmaId);
 
   let total = 0, presencas = 0, faltas = 0;
   const registros: { data: string; status: string }[] = [];

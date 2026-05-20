@@ -8,64 +8,111 @@
 // Leituras são síncronas (do cache). Escritas vão pro Firestore + cache.
 const CACHE = {};
 
+// ─── MULTI-TENANT: ESCOLA ATIVA ──────────────────────────────
+let ESCOLA_ATIVA = null;
+
+function setEscolaAtiva(escolaId) {
+  ESCOLA_ATIVA = escolaId;
+  if (typeof FIREBASE_USER !== 'undefined' && FIREBASE_USER) {
+    db.collection('users').doc(FIREBASE_USER.uid).set({ escolaAtiva: escolaId }, { merge: true }).catch(e => console.warn('setEscolaAtiva:', e));
+  }
+  console.log('🏫 Escola ativa:', escolaId);
+}
+
+function getEscolaAtiva() { return ESCOLA_ATIVA; }
+
+// Filtra coleção pela escola ativa
+function dbGetAllEscola(key) {
+  if (!ESCOLA_ATIVA || ESCOLA_ATIVA === 'semed') return dbGetAll(key);
+  return dbGetAll(key).filter(item => item.escolaId === ESCOLA_ATIVA || !item.escolaId);
+}
+
 // ─── SEED DATA ────────────────────────────────────────────────
 const SEED = {
 
-  escola: {
-    nome: 'Unidade Escolar Professora Edith Nair Furtado da Silva',
-    cidade: 'Viana · Maranhão',
-    anoLetivo: 2026,
-    logomarca: '',
-    whatsapp: '(98) 99999-9999',
-    email: 'secretaria@edith.edu.ma.gov.br'
-  },
-
-  config: {
-    sistemaFechado: false,
-    dataFechamento: null,
-    notaMinima: 5.0,
-    bimestreAtual: 1
-  },
-
   turmas: [
-    { id: 't01', nome: '6º Ano A',  turno: 'manhã',  professorId: 'p01', disciplinaId: 'd01', ativo: true },
-    { id: 't02', nome: '7º Ano A',  turno: 'manhã',  professorId: 'p02', disciplinaId: 'd02', ativo: true },
-    { id: 't03', nome: '8º Ano A',  turno: 'tarde',  professorId: 'p03', disciplinaId: 'd03', ativo: true },
-    { id: 't04', nome: '8º Ano B',  turno: 'tarde',  professorId: 'p01', disciplinaId: 'd01', ativo: true },
-    { id: 't05', nome: '9º Ano A',  turno: 'noite',  professorId: 'p02', disciplinaId: 'd01', ativo: true },
+    { id: 't01', escolaId: 'esc01', nome: '6º Ano A',  turno: 'manhã',  professorId: 'p01', disciplinaId: 'd01',
+      modalidadeId: 'mod_fund2', nivelEnsinoId: 'niv_fund2', serie: '6º',
+      isMultisseriada: false, seriesAgrupadas: [], isMultietapa: false, etapasAgrupadas: [],
+      isAEE: false, tagsAEE: [], professorIds: ['p01'],
+      cargaHorariaSemanal: 25, duracaoAulaMinutos: 50, ativo: true },
+    { id: 't02', escolaId: 'esc01', nome: '7º Ano A',  turno: 'manhã',  professorId: 'p02', disciplinaId: 'd02',
+      modalidadeId: 'mod_fund2', nivelEnsinoId: 'niv_fund2', serie: '7º',
+      isMultisseriada: false, seriesAgrupadas: [], isMultietapa: false, etapasAgrupadas: [],
+      isAEE: false, tagsAEE: [], professorIds: ['p02'],
+      cargaHorariaSemanal: 25, duracaoAulaMinutos: 50, ativo: true },
+    { id: 't03', escolaId: 'esc01', nome: '8º Ano A',  turno: 'tarde',  professorId: 'p03', disciplinaId: 'd03',
+      modalidadeId: 'mod_fund2', nivelEnsinoId: 'niv_fund2', serie: '8º',
+      isMultisseriada: false, seriesAgrupadas: [], isMultietapa: false, etapasAgrupadas: [],
+      isAEE: false, tagsAEE: [], professorIds: ['p03'],
+      cargaHorariaSemanal: 25, duracaoAulaMinutos: 50, ativo: true },
+    { id: 't04', escolaId: 'esc01', nome: '8º Ano B',  turno: 'tarde',  professorId: 'p01', disciplinaId: 'd01',
+      modalidadeId: 'mod_fund2', nivelEnsinoId: 'niv_fund2', serie: '8º',
+      isMultisseriada: false, seriesAgrupadas: [], isMultietapa: false, etapasAgrupadas: [],
+      isAEE: false, tagsAEE: [], professorIds: ['p01'],
+      cargaHorariaSemanal: 25, duracaoAulaMinutos: 50, ativo: true },
+    { id: 't05', escolaId: 'esc01', nome: '9º Ano A',  turno: 'noite',  professorId: 'p02', disciplinaId: 'd01',
+      modalidadeId: 'mod_fund2', nivelEnsinoId: 'niv_fund2', serie: '9º',
+      isMultisseriada: false, seriesAgrupadas: [], isMultietapa: false, etapasAgrupadas: [],
+      isAEE: false, tagsAEE: [], professorIds: ['p02'],
+      cargaHorariaSemanal: 25, duracaoAulaMinutos: 50, ativo: true },
   ],
 
   professores: [
-    { id: 'p01', nome: 'Maria das Graças Santos', email: 'maria@escola.edu', disciplinas: ['d01','d02'], turmaIds: ['t01','t04'], ativo: true },
-    { id: 'p02', nome: 'José Carlos Ferreira',    email: 'jose@escola.edu',  disciplinas: ['d02','d03'], turmaIds: ['t02','t05'], ativo: true },
-    { id: 'p03', nome: 'Ana Beatriz Oliveira',    email: 'ana@escola.edu',   disciplinas: ['d03','d04'], turmaIds: ['t03'],       ativo: true },
+    { id: 'p01', escolaId: 'esc01', nome: 'Maria das Graças Santos', email: 'maria@escola.edu', disciplinas: ['d01','d02'], turmaIds: ['t01','t04'], ativo: true },
+    { id: 'p02', escolaId: 'esc01', nome: 'José Carlos Ferreira',    email: 'jose@escola.edu',  disciplinas: ['d02','d03'], turmaIds: ['t02','t05'], ativo: true },
+    { id: 'p03', escolaId: 'esc01', nome: 'Ana Beatriz Oliveira',    email: 'ana@escola.edu',   disciplinas: ['d03','d04'], turmaIds: ['t03'],       ativo: true },
   ],
 
   disciplinas: [
-    { id: 'd01', nome: 'Língua Portuguesa', icone: 'fa-book-open',      cor: '#ef4444', ativo: true },
-    { id: 'd02', nome: 'Matemática',         icone: 'fa-calculator',     cor: '#3b82f6', ativo: true },
-    { id: 'd03', nome: 'Ciências',           icone: 'fa-flask',          cor: '#10b981', ativo: true },
-    { id: 'd04', nome: 'História',           icone: 'fa-landmark',       cor: '#f59e0b', ativo: true },
-    { id: 'd05', nome: 'Geografia',          icone: 'fa-earth-americas', cor: '#8b5cf6', ativo: true },
-    { id: 'd06', nome: 'Arte',               icone: 'fa-palette',        cor: '#ec4899', ativo: true },
-    { id: 'd07', nome: 'Educação Física',    icone: 'fa-futbol',         cor: '#f97316', ativo: true },
-    { id: 'd08', nome: 'Língua Inglesa',     icone: 'fa-language',       cor: '#6366f1', ativo: true },
-    { id: 'd09', nome: 'Ensino Religioso',   icone: 'fa-star',           cor: '#a855f7', ativo: true },
+    { id: 'd01', escolaId: 'esc01', nome: 'Língua Portuguesa', icone: 'fa-book-open',      cor: '#ef4444', ativo: true },
+    { id: 'd02', escolaId: 'esc01', nome: 'Matemática',         icone: 'fa-calculator',     cor: '#3b82f6', ativo: true },
+    { id: 'd03', escolaId: 'esc01', nome: 'Ciências',           icone: 'fa-flask',          cor: '#10b981', ativo: true },
+    { id: 'd04', escolaId: 'esc01', nome: 'História',           icone: 'fa-landmark',       cor: '#f59e0b', ativo: true },
+    { id: 'd05', escolaId: 'esc01', nome: 'Geografia',          icone: 'fa-earth-americas', cor: '#8b5cf6', ativo: true },
+    { id: 'd06', escolaId: 'esc01', nome: 'Arte',               icone: 'fa-palette',        cor: '#ec4899', ativo: true },
+    { id: 'd07', escolaId: 'esc01', nome: 'Educação Física',    icone: 'fa-futbol',         cor: '#f97316', ativo: true },
+    { id: 'd08', escolaId: 'esc01', nome: 'Língua Inglesa',     icone: 'fa-language',       cor: '#6366f1', ativo: true },
+    { id: 'd09', escolaId: 'esc01', nome: 'Ensino Religioso',   icone: 'fa-star',           cor: '#a855f7', ativo: true },
   ],
 
   alunos: [
-    { id: 'a01', nome: 'Ana Carolina Souza',      matricula: '2026001', cpf: '111.111.111-11', turmaId: 't01', ativo: true },
-    { id: 'a02', nome: 'Bruno Henrique Lima',     matricula: '2026002', cpf: '222.222.222-22', turmaId: 't01', ativo: true },
-    { id: 'a03', nome: 'Carla Fernanda Costa',    matricula: '2026003', cpf: '333.333.333-33', turmaId: 't01', ativo: true },
-    { id: 'a04', nome: 'Diego Martins Pereira',   matricula: '2026004', cpf: '444.444.444-44', turmaId: 't02', ativo: true },
-    { id: 'a05', nome: 'Eduarda Silva Rocha',     matricula: '2026005', cpf: '555.555.555-55', turmaId: 't02', ativo: true },
-    { id: 'a06', nome: 'Felipe Augusto Nunes',    matricula: '2026006', cpf: '666.666.666-66', turmaId: 't02', ativo: true },
-    { id: 'a07', nome: 'Gabriela Moura Santos',   matricula: '2026007', cpf: '777.777.777-77', turmaId: 't03', ativo: true },
-    { id: 'a08', nome: 'Henrique Barbosa Dias',   matricula: '2026008', cpf: '888.888.888-88', turmaId: 't03', ativo: true },
-    { id: 'a09', nome: 'Isabela Teixeira Ferraz', matricula: '2026009', cpf: '999.999.999-99', turmaId: 't03', ativo: true },
-    { id: 'a10', nome: 'João Victor Cruz',         matricula: '2026010', cpf: '100.100.100-10', turmaId: 't04', ativo: true },
-    { id: 'a11', nome: 'Larissa Vieira Alves',    matricula: '2026011', cpf: '110.110.110-11', turmaId: 't04', ativo: true },
-    { id: 'a12', nome: 'Marcos Paulo Ribeiro',    matricula: '2026012', cpf: '120.120.120-12', turmaId: 't05', ativo: true },
+    { id: 'a01', nome: 'Ana Carolina Souza',      matricula: '2026001', cpf: '111.111.111-11', turmaId: 't01', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2015-03-22', sexo: 'F', corRaca: 'parda', codigoINEP: null, certidaoNascimento: '123456',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a02', nome: 'Bruno Henrique Lima',     matricula: '2026002', cpf: '222.222.222-22', turmaId: 't01', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2015-07-15', sexo: 'M', corRaca: 'branca', codigoINEP: null, certidaoNascimento: '234567',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a03', nome: 'Carla Fernanda Costa',    matricula: '2026003', cpf: '333.333.333-33', turmaId: 't01', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2015-01-10', sexo: 'F', corRaca: 'preta', codigoINEP: null, certidaoNascimento: '345678',
+      necessidadesEspeciais: ['baixa_visao'], deficiencia: 'visual', transporte: 'escolar_publico', zona: 'rural' },
+    { id: 'a04', nome: 'Diego Martins Pereira',   matricula: '2026004', cpf: '444.444.444-44', turmaId: 't02', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2014-11-05', sexo: 'M', corRaca: 'parda', codigoINEP: null, certidaoNascimento: '456789',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a05', nome: 'Eduarda Silva Rocha',     matricula: '2026005', cpf: '555.555.555-55', turmaId: 't02', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2014-06-20', sexo: 'F', corRaca: 'indigena', codigoINEP: null, certidaoNascimento: '567890',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a06', nome: 'Felipe Augusto Nunes',    matricula: '2026006', cpf: '666.666.666-66', turmaId: 't02', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2014-09-12', sexo: 'M', corRaca: 'branca', codigoINEP: null, certidaoNascimento: null,
+      necessidadesEspeciais: ['autismo'], deficiencia: 'tea', transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a07', nome: 'Gabriela Moura Santos',   matricula: '2026007', cpf: '777.777.777-77', turmaId: 't03', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2013-04-18', sexo: 'F', corRaca: 'parda', codigoINEP: null, certidaoNascimento: '678901',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a08', nome: 'Henrique Barbosa Dias',   matricula: '2026008', cpf: '888.888.888-88', turmaId: 't03', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2013-08-25', sexo: 'M', corRaca: 'preta', codigoINEP: null, certidaoNascimento: '789012',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'escolar_publico', zona: 'rural' },
+    { id: 'a09', nome: 'Isabela Teixeira Ferraz', matricula: '2026009', cpf: '999.999.999-99', turmaId: 't03', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2013-12-02', sexo: 'F', corRaca: 'amarela', codigoINEP: null, certidaoNascimento: '890123',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a10', nome: 'João Victor Cruz',         matricula: '2026010', cpf: '100.100.100-10', turmaId: 't04', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2012-05-30', sexo: 'M', corRaca: 'parda', codigoINEP: null, certidaoNascimento: '901234',
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a11', nome: 'Larissa Vieira Alves',    matricula: '2026011', cpf: '110.110.110-11', turmaId: 't04', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2012-10-14', sexo: 'F', corRaca: 'branca', codigoINEP: null, certidaoNascimento: null,
+      necessidadesEspeciais: [], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
+    { id: 'a12', nome: 'Marcos Paulo Ribeiro',    matricula: '2026012', cpf: '120.120.120-12', turmaId: 't05', escolaId: 'esc01', ativo: true,
+      dataNascimento: '2011-02-08', sexo: 'M', corRaca: 'parda', codigoINEP: null, certidaoNascimento: '012345',
+      necessidadesEspeciais: ['tdah'], deficiencia: null, transporte: 'nenhum', zona: 'urbana' },
   ],
 
   notas: [
@@ -300,25 +347,193 @@ const SEED = {
     { id: 'esc01', slug: 'ueedithnair', nome: 'U.E. Professora Edith Nair Furtado da Silva', nomeAbreviado: 'U.E. Edith Nair',
       codigoINEP: '21045780', endereco: 'Rua Principal, 100 - Centro', cidade: 'Viana', estado: 'MA',
       telefone: '(98) 99999-9999', email: 'secretaria@edith.edu.ma.gov.br', diretorNome: 'Administrador',
+      whatsapp: '(98) 99999-9999', logomarca: '',
       tipo: 'urbana', modalidades: ['fundamental_ii'], turnosFuncionamento: ['manhã','tarde'],
-      capacidade: 500, ativa: true, criadoEm: '2026-01-15' },
+      capacidade: 500, anoLetivo: 2026,
+      dependenciaAdm: 'municipal', localizacaoDiferenciada: 'nao_se_aplica',
+      infraestrutura: { agua: 'rede_publica', esgoto: 'rede_publica', energia: 'rede_publica',
+        internet: true, bandaLarga: true, acessibilidade: true, quadraEsportiva: true,
+        biblioteca: true, laboratorioInformatica: true, laboratorioCiencias: false,
+        cozinha: true, refeitorio: true, banheiroPNE: true, salaRecursos: false },
+      sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      ativa: true, criadoEm: '2026-01-15' },
     { id: 'esc02', slug: 'uemanoel', nome: 'U.E. Manoel Beckman', nomeAbreviado: 'U.E. Manoel Beckman',
       codigoINEP: '21045798', endereco: 'Av. Brasil, 450 - Bairro Novo', cidade: 'Viana', estado: 'MA',
       telefone: '(98) 98888-8888', email: 'contato@manoel.edu.ma.gov.br', diretorNome: 'José Ferreira',
+      whatsapp: '(98) 98888-8888', logomarca: '',
       tipo: 'urbana', modalidades: ['fundamental_ii'], turnosFuncionamento: ['manhã','tarde','noite'],
-      capacidade: 350, ativa: true, criadoEm: '2026-02-01' },
+      capacidade: 350, anoLetivo: 2026,
+      dependenciaAdm: 'municipal', localizacaoDiferenciada: 'nao_se_aplica',
+      infraestrutura: { agua: 'rede_publica', esgoto: 'fossa', energia: 'rede_publica',
+        internet: true, bandaLarga: false, acessibilidade: false, quadraEsportiva: true,
+        biblioteca: false, laboratorioInformatica: true, laboratorioCiencias: false,
+        cozinha: true, refeitorio: false, banheiroPNE: false, salaRecursos: false },
+      sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      ativa: true, criadoEm: '2026-02-01' },
     { id: 'esc03', slug: 'uesaojoao', nome: 'U.E. São João Batista', nomeAbreviado: 'U.E. São João',
       codigoINEP: '21045801', endereco: 'Estrada do Interior, Km 12', cidade: 'Viana', estado: 'MA',
       telefone: '(98) 97777-7777', email: 'contato@saojoao.edu.ma.gov.br', diretorNome: 'Ana Oliveira',
+      whatsapp: '(98) 97777-7777', logomarca: '',
       tipo: 'rural', modalidades: ['fundamental_ii'], turnosFuncionamento: ['manhã'],
-      capacidade: 120, ativa: true, criadoEm: '2026-02-10' },
+      capacidade: 120, anoLetivo: 2026,
+      dependenciaAdm: 'municipal', localizacaoDiferenciada: 'area_assentamento',
+      infraestrutura: { agua: 'poco_artesiano', esgoto: 'fossa', energia: 'rede_publica',
+        internet: false, bandaLarga: false, acessibilidade: false, quadraEsportiva: false,
+        biblioteca: false, laboratorioInformatica: false, laboratorioCiencias: false,
+        cozinha: true, refeitorio: false, banheiroPNE: false, salaRecursos: false },
+      sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      ativa: true, criadoEm: '2026-02-10' },
+  ],
+
+  // ── MODALIDADES DE ENSINO ──────────────────────────────────────
+  modalidades_ensino: [
+    { id: 'mod_infantil', codigo: 'educacao_infantil', nome: 'Educação Infantil',
+      registroCargaHoraria: 'manual_diario', cargaHorariaAnualMinima: 800, diasLetivosMinimos: 200,
+      usaNotasBimestrais: false, usaCamposExperiencia: true, permiteMultisseriada: true, ativo: true },
+    { id: 'mod_fund1', codigo: 'fundamental_i', nome: 'Ensino Fundamental I (Anos Iniciais)',
+      registroCargaHoraria: 'grade_fixa', cargaHorariaAnualMinima: 800, diasLetivosMinimos: 200,
+      usaNotasBimestrais: true, usaCamposExperiencia: false, permiteMultisseriada: true, ativo: true },
+    { id: 'mod_fund2', codigo: 'fundamental_ii', nome: 'Ensino Fundamental II (Anos Finais)',
+      registroCargaHoraria: 'grade_fixa', cargaHorariaAnualMinima: 800, diasLetivosMinimos: 200,
+      usaNotasBimestrais: true, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+    { id: 'mod_eja', codigo: 'eja', nome: 'Educação de Jovens e Adultos (EJA)',
+      registroCargaHoraria: 'grade_fixa', cargaHorariaAnualMinima: 640, diasLetivosMinimos: 200,
+      usaNotasBimestrais: true, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+    { id: 'mod_medio', codigo: 'ensino_medio', nome: 'Ensino Médio',
+      registroCargaHoraria: 'grade_fixa', cargaHorariaAnualMinima: 1000, diasLetivosMinimos: 200,
+      usaNotasBimestrais: true, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+    { id: 'mod_medio_tec', codigo: 'ensino_medio_tecnico', nome: 'Ensino Médio Técnico Integrado',
+      registroCargaHoraria: 'grade_fixa', cargaHorariaAnualMinima: 1000, diasLetivosMinimos: 200,
+      usaNotasBimestrais: true, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+    { id: 'mod_aee', codigo: 'aee', nome: 'Atendimento Educacional Especializado (AEE)',
+      registroCargaHoraria: 'manual_diario', cargaHorariaAnualMinima: 0, diasLetivosMinimos: 0,
+      usaNotasBimestrais: false, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+    { id: 'mod_ativcomp', codigo: 'atividades_complementares', nome: 'Atividades Complementares',
+      registroCargaHoraria: 'manual_diario', cargaHorariaAnualMinima: 0, diasLetivosMinimos: 0,
+      usaNotasBimestrais: false, usaCamposExperiencia: false, permiteMultisseriada: false, ativo: true },
+  ],
+
+  // ── NÍVEIS DE ENSINO ───────────────────────────────────────────
+  niveis_ensino: [
+    // Educação Infantil
+    { id: 'niv_bercario', modalidadeId: 'mod_infantil', nome: 'Berçário (Creche)', sigla: 'BRC',
+      subniveis: ['M1','M2','M3'], idadeMinimaMeses: 0, idadeMaximaMeses: 23, dataCorte: '03-31', ordemExibicao: 1, ativo: true },
+    { id: 'niv_creche_g', modalidadeId: 'mod_infantil', nome: 'Creche — Grupos', sigla: 'CRG',
+      subniveis: ['G1','G2','G2.2','G2.3'], idadeMinimaMeses: 12, idadeMaximaMeses: 35, dataCorte: '03-31', ordemExibicao: 2, ativo: true },
+    { id: 'niv_preescola', modalidadeId: 'mod_infantil', nome: 'Pré-Escola', sigla: 'PRE',
+      subniveis: ['G3','G3.4','G3.5','G4','G5'], idadeMinimaMeses: 36, idadeMaximaMeses: 71, dataCorte: '03-31', ordemExibicao: 3, ativo: true },
+    // Fundamental I
+    { id: 'niv_fund1', modalidadeId: 'mod_fund1', nome: 'Anos Iniciais (1º ao 5º)', sigla: 'AI',
+      subniveis: ['1º Ano','2º Ano','3º Ano','4º Ano','5º Ano'], idadeMinimaMeses: 72, idadeMaximaMeses: 131, dataCorte: '03-31', ordemExibicao: 1, ativo: true },
+    // Fundamental II
+    { id: 'niv_fund2', modalidadeId: 'mod_fund2', nome: 'Anos Finais (6º ao 9º)', sigla: 'AF',
+      subniveis: ['6º','7º','8º','9º'], idadeMinimaMeses: 132, idadeMaximaMeses: 179, dataCorte: '03-31', ordemExibicao: 1, ativo: true },
+    // EJA
+    { id: 'niv_eja1', modalidadeId: 'mod_eja', nome: 'EJA — Etapa 1 (1º ao 3º)', sigla: 'EJ1',
+      subniveis: ['1º Ano','2º Ano','3º Ano'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 1, ativo: true },
+    { id: 'niv_eja2', modalidadeId: 'mod_eja', nome: 'EJA — Etapa 2 (4º e 5º)', sigla: 'EJ2',
+      subniveis: ['4º Ano','5º Ano'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 2, ativo: true },
+    { id: 'niv_eja3', modalidadeId: 'mod_eja', nome: 'EJA — Etapa 3 (6º e 7º)', sigla: 'EJ3',
+      subniveis: ['6º Ano','7º Ano'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 3, ativo: true },
+    { id: 'niv_eja4', modalidadeId: 'mod_eja', nome: 'EJA — Etapa 4 (8º e 9º)', sigla: 'EJ4',
+      subniveis: ['8º Ano','9º Ano'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 4, ativo: true },
+    // Ensino Médio
+    { id: 'niv_medio', modalidadeId: 'mod_medio', nome: 'Ensino Médio (1ª a 3ª)', sigla: 'EM',
+      subniveis: ['1ª Série','2ª Série','3ª Série'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 1, ativo: true },
+    { id: 'niv_medio_tec', modalidadeId: 'mod_medio_tec', nome: 'Ensino Médio Técnico', sigla: 'EMT',
+      subniveis: ['1ª Série','2ª Série','3ª Série'], idadeMinimaMeses: 180, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 1, ativo: true },
+    // AEE
+    { id: 'niv_aee', modalidadeId: 'mod_aee', nome: 'Sala de Recursos AEE', sigla: 'AEE',
+      subniveis: [], idadeMinimaMeses: null, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 1, ativo: true },
+    // Atividades Complementares
+    { id: 'niv_ativcomp', modalidadeId: 'mod_ativcomp', nome: 'Atividades Complementares', sigla: 'ATC',
+      subniveis: [], idadeMinimaMeses: null, idadeMaximaMeses: null, dataCorte: null, ordemExibicao: 1, ativo: true },
+  ],
+
+  // ── REGISTRO DE CARGA HORÁRIA ────────────────────────────────
+  registro_carga_horaria: [
+    { id: 'rch01', escolaId: 'esc01', turmaId: 't01', data: '2026-02-10',
+      blocos: [
+        { inicio: '07:30', fim: '09:00', atividade: 'Aula de Matemática', minutos: 90 },
+        { inicio: '09:20', fim: '10:50', atividade: 'Aula de Português', minutos: 90 },
+        { inicio: '11:00', fim: '11:50', atividade: 'Aula de Ciências', minutos: 50 },
+      ],
+      totalMinutos: 230, professorId: 'p01', observacao: '', criadoEm: '2026-02-10' },
+    { id: 'rch02', escolaId: 'esc01', turmaId: 't01', data: '2026-02-11',
+      blocos: [
+        { inicio: '07:30', fim: '09:00', atividade: 'Aula de História', minutos: 90 },
+        { inicio: '09:20', fim: '10:50', atividade: 'Aula de Geografia', minutos: 90 },
+        { inicio: '11:00', fim: '11:50', atividade: 'Educação Física', minutos: 50 },
+      ],
+      totalMinutos: 230, professorId: 'p01', observacao: '', criadoEm: '2026-02-11' },
+    { id: 'rch03', escolaId: 'esc01', turmaId: 't01', data: '2026-02-12',
+      blocos: [
+        { inicio: '07:30', fim: '09:00', atividade: 'Aula de Matemática', minutos: 90 },
+        { inicio: '09:20', fim: '11:00', atividade: 'Projeto Integrador', minutos: 100 },
+      ],
+      totalMinutos: 190, professorId: 'p01', observacao: 'Hora-atividade após 11h', criadoEm: '2026-02-12' },
+  ],
+
+  // ── DICIONÁRIO INEP / EDUCACENSO ───────────────────────
+  dicionario_inep: [
+    // Cor/Raça (Tabela 2)
+    { id: 'inep_cor_0', tabela: 'cor_raca', codigo: 0, descricao: 'Não declarada', chave: 'nao_declarada' },
+    { id: 'inep_cor_1', tabela: 'cor_raca', codigo: 1, descricao: 'Branca', chave: 'branca' },
+    { id: 'inep_cor_2', tabela: 'cor_raca', codigo: 2, descricao: 'Preta', chave: 'preta' },
+    { id: 'inep_cor_3', tabela: 'cor_raca', codigo: 3, descricao: 'Parda', chave: 'parda' },
+    { id: 'inep_cor_4', tabela: 'cor_raca', codigo: 4, descricao: 'Amarela', chave: 'amarela' },
+    { id: 'inep_cor_5', tabela: 'cor_raca', codigo: 5, descricao: 'Indígena', chave: 'indigena' },
+    // Sexo (Tabela 3)
+    { id: 'inep_sexo_1', tabela: 'sexo', codigo: 1, descricao: 'Masculino', chave: 'M' },
+    { id: 'inep_sexo_2', tabela: 'sexo', codigo: 2, descricao: 'Feminino', chave: 'F' },
+    // Dependência Administrativa (Tabela 10)
+    { id: 'inep_dep_1', tabela: 'dependencia_adm', codigo: 1, descricao: 'Federal', chave: 'federal' },
+    { id: 'inep_dep_2', tabela: 'dependencia_adm', codigo: 2, descricao: 'Estadual', chave: 'estadual' },
+    { id: 'inep_dep_3', tabela: 'dependencia_adm', codigo: 3, descricao: 'Municipal', chave: 'municipal' },
+    { id: 'inep_dep_4', tabela: 'dependencia_adm', codigo: 4, descricao: 'Privada', chave: 'privada' },
+    // Localização (Tabela 11)
+    { id: 'inep_loc_1', tabela: 'localizacao', codigo: 1, descricao: 'Urbana', chave: 'urbana' },
+    { id: 'inep_loc_2', tabela: 'localizacao', codigo: 2, descricao: 'Rural', chave: 'rural' },
+    // Abastecimento de Água (Tabela 14)
+    { id: 'inep_agua_1', tabela: 'agua', codigo: 1, descricao: 'Rede Pública', chave: 'rede_publica' },
+    { id: 'inep_agua_2', tabela: 'agua', codigo: 2, descricao: 'Poço Artesiano', chave: 'poco_artesiano' },
+    { id: 'inep_agua_3', tabela: 'agua', codigo: 3, descricao: 'Cacimba/Cisterna', chave: 'cacimba' },
+    { id: 'inep_agua_4', tabela: 'agua', codigo: 4, descricao: 'Rio/Igarapé', chave: 'rio' },
+    { id: 'inep_agua_5', tabela: 'agua', codigo: 5, descricao: 'Inexistente', chave: 'inexistente' },
+    // Esgoto (Tabela 15)
+    { id: 'inep_esg_1', tabela: 'esgoto', codigo: 1, descricao: 'Rede Pública', chave: 'rede_publica' },
+    { id: 'inep_esg_2', tabela: 'esgoto', codigo: 2, descricao: 'Fossa Séptica', chave: 'fossa' },
+    { id: 'inep_esg_3', tabela: 'esgoto', codigo: 3, descricao: 'Inexistente', chave: 'inexistente' },
+    // Deficiência (Tabela 24)
+    { id: 'inep_def_1', tabela: 'deficiencia', codigo: 1, descricao: 'Cegueira', chave: 'cegueira' },
+    { id: 'inep_def_2', tabela: 'deficiencia', codigo: 2, descricao: 'Baixa Visão', chave: 'baixa_visao' },
+    { id: 'inep_def_3', tabela: 'deficiencia', codigo: 3, descricao: 'Surdez', chave: 'surdez' },
+    { id: 'inep_def_4', tabela: 'deficiencia', codigo: 4, descricao: 'Def. Auditiva', chave: 'auditiva' },
+    { id: 'inep_def_5', tabela: 'deficiencia', codigo: 5, descricao: 'Surdocegueira', chave: 'surdocegueira' },
+    { id: 'inep_def_6', tabela: 'deficiencia', codigo: 6, descricao: 'Def. Física', chave: 'fisica' },
+    { id: 'inep_def_7', tabela: 'deficiencia', codigo: 7, descricao: 'Def. Intelectual', chave: 'intelectual' },
+    { id: 'inep_def_8', tabela: 'deficiencia', codigo: 8, descricao: 'Def. Múltipla', chave: 'multipla' },
+    { id: 'inep_def_9', tabela: 'deficiencia', codigo: 9, descricao: 'TEA (Autismo)', chave: 'tea' },
+    { id: 'inep_def_10', tabela: 'deficiencia', codigo: 10, descricao: 'Altas Habilidades', chave: 'altas_habilidades' },
+    // Transporte Escolar (Tabela 29)
+    { id: 'inep_transp_0', tabela: 'transporte', codigo: 0, descricao: 'Não utiliza', chave: 'nenhum' },
+    { id: 'inep_transp_1', tabela: 'transporte', codigo: 1, descricao: 'Escolar Público Municipal', chave: 'escolar_publico' },
+    { id: 'inep_transp_2', tabela: 'transporte', codigo: 2, descricao: 'Escolar Público Estadual', chave: 'escolar_estadual' },
+    { id: 'inep_transp_3', tabela: 'transporte', codigo: 3, descricao: 'Particular', chave: 'particular' },
+    // Situação do Aluno (Tabela 35)
+    { id: 'inep_sit_1', tabela: 'situacao_aluno', codigo: 1, descricao: 'Aprovado', chave: 'aprovado' },
+    { id: 'inep_sit_2', tabela: 'situacao_aluno', codigo: 2, descricao: 'Reprovado', chave: 'reprovado' },
+    { id: 'inep_sit_3', tabela: 'situacao_aluno', codigo: 3, descricao: 'Cursando', chave: 'cursando' },
+    { id: 'inep_sit_4', tabela: 'situacao_aluno', codigo: 4, descricao: 'Transferido', chave: 'transferido' },
+    { id: 'inep_sit_5', tabela: 'situacao_aluno', codigo: 5, descricao: 'Deixou de Frequentar', chave: 'desistente' },
+    { id: 'inep_sit_6', tabela: 'situacao_aluno', codigo: 6, descricao: 'Falecido', chave: 'falecido' },
   ],
 };
 
 // Coleções que são arrays (listas de documentos)
-const LIST_COLLECTIONS = ['turmas','professores','disciplinas','alunos','notas','frequencia','diario','atividades','aee','avisos','horarios_aula','grade_horaria','eventos_calendario','equipe','galeria','depoimentos','repasses_financeiros','estoque_merenda','circulares','ideb_historico','consumo_merenda','escolas_rede'];
-// Coleções que são documentos únicos (singletons)
-const SINGLETON_COLLECTIONS = ['escola','config'];
+const LIST_COLLECTIONS = ['turmas','professores','disciplinas','alunos','notas','frequencia','diario','atividades','aee','avisos','horarios_aula','grade_horaria','eventos_calendario','equipe','galeria','depoimentos','repasses_financeiros','estoque_merenda','circulares','ideb_historico','consumo_merenda','escolas_rede','modalidades_ensino','niveis_ensino','registro_carga_horaria','dicionario_inep'];
+// Coleções que são documentos únicos (singletons) — escola/config migrados para escolas_rede
+const SINGLETON_COLLECTIONS = [];
 
 // ─── FIRESTORE DATA ACCESS LAYER ─────────────────────────────
 
@@ -354,6 +569,9 @@ async function loadAllData() {
 
 // ─── SYNC READ API (from cache) ──────────────────────────────
 function dbGet(key) {
+  // Legacy compatibility: redirect escola/config to multi-tenant functions
+  if (key === 'escola') return getEscolaInfo();
+  if (key === 'config') return getConfig();
   if (SINGLETON_COLLECTIONS.includes(key)) {
     return CACHE[key] || SEED[key] || null;
   }
@@ -426,11 +644,40 @@ function generateId(prefix = 'id') {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// ─── CONFIG HELPERS ──────────────────────────────────────────
-function getConfig() { return dbGet('config'); }
+// ─── CONFIG HELPERS (agora lê de escolas_rede) ──────────────
+function getConfig() {
+  if (!ESCOLA_ATIVA || ESCOLA_ATIVA === 'semed') return { sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1 };
+  const escola = dbFind('escolas_rede', ESCOLA_ATIVA);
+  if (!escola) return { sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1 };
+  return {
+    sistemaFechado: escola.sistemaFechado || false,
+    dataFechamento: escola.dataFechamento || null,
+    notaMinima: escola.notaMinima || 5.0,
+    bimestreAtual: escola.bimestreAtual || 1
+  };
+}
 function setConfig(updates) {
-  const newCfg = { ...getConfig(), ...updates };
-  dbSet('config', newCfg);
+  if (!ESCOLA_ATIVA || ESCOLA_ATIVA === 'semed') return;
+  dbUpdate('escolas_rede', ESCOLA_ATIVA, updates);
+}
+
+function getEscolaInfo() {
+  if (!ESCOLA_ATIVA) return { nome: 'Sistema Escolar', cidade: 'Viana · MA', anoLetivo: 2026 };
+  if (ESCOLA_ATIVA === 'semed') {
+    return {
+      id: 'semed',
+      nome: 'SEMED - Secretaria Municipal de Educação',
+      nomeAbreviado: 'SEMED',
+      cidade: 'Viana - MA',
+      anoLetivo: 2026,
+      logomarca: '',
+      whatsapp: '(98) 3351-1234',
+      email: 'semed@viana.ma.gov.br',
+      diretorNome: 'Secretário de Educação',
+      tipo: 'semed'
+    };
+  }
+  return dbFind('escolas_rede', ESCOLA_ATIVA) || { nome: 'Sistema Escolar', cidade: 'Viana · MA', anoLetivo: 2026 };
 }
 
 function isSistemaClosed() { return getConfig().sistemaFechado === true; }
@@ -486,12 +733,15 @@ async function registrarAluno(cpf, email, senha) {
   const cred = await auth.createUserWithEmailAndPassword(email, senha);
   const uid = cred.user.uid;
 
-  // 3. Criar documento do usuário
+  // 3. Criar documento do usuário (com escola do aluno)
+  const escolaId = aluno.escolaId || 'esc01';
   await db.collection('users').doc(uid).set({
     email: email,
     nome: aluno.nome,
     roles: ['aluno'],
     alunoId: aluno.id,
+    escolaIds: [escolaId],
+    escolaAtiva: escolaId,
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
 
@@ -510,9 +760,12 @@ async function getUserData(uid) {
 
 // ─── NOTA HELPERS ─────────────────────────────────────────────
 function getNotaAnual(b1, b2, b3, b4) {
-  if (b4 === null || b4 === undefined) return null;
-  const notas = [b1, b2, b3, b4].map(n => parseFloat(n) || 0);
-  return +(notas.reduce((a,b) => a+b, 0) / 4).toFixed(1);
+  const notas = [b1, b2, b3, b4];
+  // Exige TODOS os 4 bimestres preenchidos para calcular média anual
+  if (notas.some(n => n === null || n === undefined)) return null;
+  const vals = notas.map(n => parseFloat(n));
+  if (vals.some(v => isNaN(v))) return null;
+  return +(vals.reduce((a,b) => a+b, 0) / 4).toFixed(1);
 }
 
 function isAprovado(notaAnual, notaMinima = 5.0) {
@@ -579,11 +832,17 @@ async function seedFirestore() {
     console.warn('Erro ao atualizar token:', e);
   }
 
-  // Verificar se já tem dados
+  // Verificar se já tem dados (checa escolas_rede ao invés do antigo singleton)
   try {
-    const escolaSnap = await db.collection('escola').doc('info').get();
+    const escolaSnap = await db.collection('escolas_rede').doc('esc01').get();
     if (escolaSnap.exists) {
       console.log('✅ Firestore já tem dados, pulando seed.');
+      return false;
+    }
+    // Fallback: checa antigo singleton também
+    const oldSnap = await db.collection('escola').doc('info').get();
+    if (oldSnap.exists) {
+      console.log('✅ Firestore já tem dados (formato antigo), pulando seed.');
       return false;
     }
   } catch (e) {
@@ -591,14 +850,10 @@ async function seedFirestore() {
     return false;
   }
 
-  console.log('🌱 Populando Firestore com dados iniciais...');
+  console.log('🌱 Populando Firestore com dados iniciais (multi-tenant)...');
 
   try {
-    // Singletons
-    await db.collection('escola').doc('info').set(SEED.escola);
-    await db.collection('config').doc('info').set(SEED.config);
-
-    // Lists
+    // Lists (inclui escolas_rede)
     for (const key of LIST_COLLECTIONS) {
       const items = SEED[key] || [];
       const batch = db.batch();
@@ -609,19 +864,31 @@ async function seedFirestore() {
       if (items.length > 0) await batch.commit();
     }
 
-    // Criar/atualizar documento do admin no Firestore
+    // Criar/atualizar documento do admin no Firestore (com escolaIds multi-tenant)
     const userSnap = await db.collection('users').doc(adminUid).get();
     if (!userSnap.exists) {
       await db.collection('users').doc(adminUid).set({
         email: currentUser.email,
         nome: 'Administrador',
-        roles: ['aluno', 'professor', 'diretor'],
+        roles: ['aluno', 'professor', 'diretor', 'secretaria'],
         alunoId: 'a01',
         professorId: 'p01',
+        escolaIds: ['esc01', 'esc02', 'esc03'],
+        escolaAtiva: 'esc01',
         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
       });
       // Vincular uid ao aluno a01
       await db.collection('alunos').doc('a01').update({ uid: adminUid });
+    } else {
+      // Update existing user with escolaIds if missing
+      const existingData = userSnap.data();
+      if (!existingData.escolaIds) {
+        await db.collection('users').doc(adminUid).update({
+          escolaIds: ['esc01', 'esc02', 'esc03'],
+          escolaAtiva: 'esc01',
+          roles: existingData.roles?.includes('secretaria') ? existingData.roles : [...(existingData.roles || []), 'secretaria']
+        });
+      }
     }
 
     console.log('✅ Seed concluído!');

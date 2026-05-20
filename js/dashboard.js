@@ -50,6 +50,7 @@ const NAV = {
     { id: 'page-dir-professores', icon: 'fa-chalkboard-user', label: 'Professores',      sub: 'Cadastro de professores' },
     { id: 'page-dir-turmas',      icon: 'fa-chalkboard',      label: 'Turmas',           sub: 'Salas e turnos' },
     { id: 'page-dir-horarios',    icon: 'fa-clock',           label: 'Horários',         sub: 'Horários de aula' },
+    { id: 'page-dir-carga',       icon: 'fa-hourglass-half',  label: 'Carga Horária',    sub: 'Registro e controle de CH' },
     { id: 'page-dir-relatorios',  icon: 'fa-chart-pie',       label: 'Relatórios',       sub: 'Notas e desempenho' },
     { id: 'page-dir-diario',     icon: 'fa-book-open',       label: 'Diário Digital',   sub: 'Registros de aulas dos professores' },
     { id: 'page-dir-conteudo',    icon: 'fa-palette',         label: 'Conteúdo do Site',  sub: 'Equipe, galeria e depoimentos' },
@@ -271,6 +272,38 @@ async function handleAuthUser(firebaseUser) {
     // Load all data from Firestore into cache
     await loadAllData();
 
+    // Auto-migrate: add escolaIds if missing (for existing users pre-multi-tenant)
+    if (USER_DATA && !USER_DATA.escolaIds) {
+      const allSchools = dbGetAll('escolas_rede').map(e => e.id);
+      const defaultEscolas = allSchools.length > 0 ? allSchools : ['esc01'];
+      const roles = USER_DATA.roles || [];
+      if (roles.includes('diretor') || roles.includes('secretaria')) {
+        try {
+          await db.collection('users').doc(firebaseUser.uid).update({
+            escolaIds: defaultEscolas,
+            escolaAtiva: defaultEscolas[0]
+          });
+          USER_DATA.escolaIds = defaultEscolas;
+          USER_DATA.escolaAtiva = defaultEscolas[0];
+          console.log('🔄 Migrated user with escolaIds:', defaultEscolas);
+        } catch(e) { console.warn('Auto-migrate escolaIds failed:', e); }
+      } else {
+        USER_DATA.escolaIds = ['esc01'];
+        USER_DATA.escolaAtiva = 'esc01';
+      }
+    }
+
+    // Also ensure 'secretaria' role exists for admins
+    if (USER_DATA && USER_DATA.roles && USER_DATA.roles.includes('diretor') && !USER_DATA.roles.includes('secretaria')) {
+      try {
+        await db.collection('users').doc(firebaseUser.uid).update({
+          roles: firebase.firestore.FieldValue.arrayUnion('secretaria')
+        });
+        USER_DATA.roles.push('secretaria');
+        console.log('🔄 Added secretaria role to diretor user');
+      } catch(e) { console.warn('Auto-add secretaria role failed:', e); }
+    }
+
     // Check roles
     const roles = USER_DATA.roles || [];
     if (roles.length === 0) {
@@ -344,8 +377,84 @@ function enterDashboard(role) {
   }
 
   SESSION = { role, user, name, userData: USER_DATA };
+
+  // Multi-tenant: definir escola ativa
+  const escolaIds = USER_DATA.escolaIds || ['esc01'];
+  const escolaAtiva = USER_DATA.escolaAtiva || escolaIds[0] || 'esc01';
+
+  // Diretor/Secretaria com múltiplas escolas: mostrar seletor
+  if ((role === 'diretor' || role === 'secretaria') && escolaIds.length > 1 && !ESCOLA_ATIVA) {
+    showSchoolSelector(escolaIds);
+    return;
+  }
+
+  // Definir escola ativa
+  setEscolaAtiva(escolaAtiva);
   hideLoading();
   initDashboard();
+}
+
+// ══ SCHOOL SELECTOR (Multi-tenant) ══
+function showSchoolSelector(escolaIds) {
+  hideLoading();
+  document.getElementById('login-card').style.display = 'none';
+  document.getElementById('role-selector-card').style.display = 'none';
+
+  // Reuse role-selector-card for school selection
+  const card = document.getElementById('role-selector-card');
+  card.style.display = '';
+  document.getElementById('rs-user-name').textContent = `Selecione a Escola`;
+  const sub = card.querySelector('.login-school-sub');
+  if (sub) sub.textContent = 'Escolha a unidade escolar que deseja acessar';
+
+  const escolas = dbGetAll('escolas_rede').filter(e => escolaIds.includes(e.id) && e.ativa);
+  const list = document.getElementById('rs-roles-list');
+  
+  let html = '';
+  if (SESSION.role === 'secretaria') {
+    html += `
+      <button class="hero-access-item" onclick="selectSchoolAndEnter('semed')" style="background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,0.25); border-radius:var(--r-md); padding:14px 18px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:var(--t-fast); width:100%; color:#fff; margin-bottom:10px;">
+        <div style="width:42px; height:42px; border-radius:var(--r-sm); background:rgba(124,58,237,0.15); color:#a78bfa; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+          <i class="fa-solid fa-building-columns"></i>
+        </div>
+        <div style="text-align:left; flex:1; min-width:0;">
+          <div style="color:#a78bfa; font-weight:700; font-size:0.9rem;">SEMED (Geral da Rede)</div>
+          <div style="color:rgba(255,255,255,0.4); font-size:0.72rem; margin-top:1px;">Visão Consolidada da Rede</div>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="margin-left:auto; color:rgba(255,255,255,0.2); font-size:.72rem;"></i>
+      </button>
+    `;
+  }
+
+  html += escolas.map(e => `
+    <button class="hero-access-item" onclick="selectSchoolAndEnter('${e.id}')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-md); padding:14px 18px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:var(--t-fast); width:100%; color:#fff; margin-bottom:6px;">
+      <div style="width:42px; height:42px; border-radius:var(--r-sm); background:rgba(37,99,235,0.15); color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+        <i class="fa-solid fa-school"></i>
+      </div>
+      <div style="text-align:left; flex:1; min-width:0;">
+        <div style="color:#fff; font-weight:700; font-size:0.9rem;">${esc(e.nomeAbreviado || e.nome)}</div>
+        <div style="color:rgba(255,255,255,0.4); font-size:0.72rem; margin-top:1px;">${esc(e.cidade || '')} · ${e.tipo === 'rural' ? '🌾 Rural' : '🏙️ Urbana'}</div>
+      </div>
+      <i class="fa-solid fa-chevron-right" style="margin-left:auto; color:rgba(255,255,255,0.2); font-size:.72rem;"></i>
+    </button>
+  `).join('');
+
+  list.innerHTML = html;
+}
+
+function selectSchoolAndEnter(escolaId) {
+  setEscolaAtiva(escolaId);
+  hideLoading();
+  initDashboard();
+}
+
+function switchSchool() {
+  const escolaIds = USER_DATA?.escolaIds || ['esc01'];
+  if (escolaIds.length <= 1) return;
+  document.getElementById('dashboard-app').classList.remove('active');
+  document.getElementById('login-screen').style.display = 'flex';
+  ESCOLA_ATIVA = null;
+  showSchoolSelector(escolaIds);
 }
 
 function doLogout() {
@@ -381,12 +490,15 @@ function initDashboard() {
   updateBellBadge();
   startTopbarClock();
 
-  const firstPage = NAV[SESSION.role][0].id;
+  let firstPage = NAV[SESSION.role]?.[0]?.id;
+  if (SESSION.role === 'secretaria' && ESCOLA_ATIVA !== 'semed') {
+    firstPage = 'page-dir-inicio';
+  }
   showPage(firstPage);
 }
 
 function updateBellBadge() {
-  const avisos = dbGetAll('avisos').filter(a => a.ativo);
+  const avisos = dbGetAllEscola('avisos').filter(a => a.ativo);
   const badge = document.getElementById('bell-badge');
   if (badge && avisos.length > 0) {
     badge.textContent = avisos.length;
@@ -398,13 +510,47 @@ function updateBellBadge() {
 
 function buildSidebar() {
   const nav = document.getElementById('sidebar-nav');
-  const items = NAV[SESSION.role];
+  let items = NAV[SESSION.role];
+  if (SESSION.role === 'secretaria') {
+    if (ESCOLA_ATIVA === 'semed' || !ESCOLA_ATIVA) {
+      items = [
+        { id: 'page-sec-inicio',      icon: 'fa-building-columns', label: 'Dashboard',       sub: 'Visão macro da educação' },
+        { id: 'page-sec-financeiro',  icon: 'fa-money-bill-wave',  label: 'Financeiro',      sub: 'Repasses e merenda' },
+        { id: 'page-sec-circulares',  icon: 'fa-scroll',           label: 'Circulares',      sub: 'Ofícios e resoluções' },
+        { id: 'page-sec-auditoria',   icon: 'fa-clipboard-check',  label: 'Indicadores',     sub: 'Censo e lotação' },
+        { id: 'page-sec-pesquisa',    icon: 'fa-magnifying-glass', label: 'Pesquisa',        sub: 'Busca inteligente global' }
+      ];
+    } else {
+      items = NAV['diretor'];
+    }
+  }
+
   nav.innerHTML = `<div class="sidebar-section-title">Menu</div>` + items.map(item => `
     <button class="sidebar-link" data-page="${item.id}" onclick="showPage('${item.id}')">
       <i class="fa-solid ${item.icon}"></i>
       ${item.label}
     </button>
   `).join('');
+
+  // Update sidebar school name
+  const escolaInfo = getEscolaInfo();
+  const sName = document.querySelector('.sidebar-logo-text .s-name');
+  const sSub = document.querySelector('.sidebar-logo-text .s-sub');
+  if (sName) sName.textContent = escolaInfo.nomeAbreviado || escolaInfo.nome || 'Portal Escolar';
+  if (sSub) sSub.textContent = ESCOLA_ATIVA === 'semed' ? 'Secretaria de Educação' : 'Portal Escolar';
+
+  // School switch button
+  const switchBtn = document.getElementById('sidebar-school-switch');
+  const escolaIds = USER_DATA?.escolaIds || [];
+  if (switchBtn) {
+    if (escolaIds.length > 1 && (SESSION.role === 'diretor' || SESSION.role === 'secretaria')) {
+      switchBtn.style.display = '';
+      const switchLabel = document.getElementById('sidebar-school-name');
+      if (switchLabel) switchLabel.textContent = 'Trocar Escola';
+    } else {
+      switchBtn.style.display = 'none';
+    }
+  }
 
   // Build bottom nav for mobile
   buildBottomNav(items);
@@ -521,7 +667,20 @@ function showPage(pageId) {
   if (bnav) bnav.classList.add('active');
 
   // Update topbar title
-  const navItem = NAV[SESSION.role]?.find(n => n.id === pageId);
+  let navItem = null;
+  if (SESSION.role === 'secretaria') {
+    const secItems = [
+      { id: 'page-sec-inicio',      icon: 'fa-building-columns', label: 'Dashboard',       sub: 'Visão macro da educação' },
+      { id: 'page-sec-financeiro',  icon: 'fa-money-bill-wave',  label: 'Financeiro',      sub: 'Repasses e merenda' },
+      { id: 'page-sec-circulares',  icon: 'fa-scroll',           label: 'Circulares',      sub: 'Ofícios e resoluções' },
+      { id: 'page-sec-auditoria',   icon: 'fa-clipboard-check',  label: 'Indicadores',     sub: 'Censo e lotação' },
+      { id: 'page-sec-pesquisa',    icon: 'fa-magnifying-glass', label: 'Pesquisa',        sub: 'Busca inteligente global' }
+    ];
+    navItem = secItems.find(n => n.id === pageId) || NAV['diretor']?.find(n => n.id === pageId);
+  } else {
+    navItem = NAV[SESSION.role]?.find(n => n.id === pageId);
+  }
+
   if (navItem) {
     document.getElementById('topbar-page-title').textContent = navItem.label;
     document.getElementById('topbar-page-sub').textContent   = navItem.sub;
@@ -561,6 +720,7 @@ function loadPageData(pageId) {
     case 'page-dir-professores':  loadDirProfessores(); break;
     case 'page-dir-turmas':       loadDirTurmas();      break;
     case 'page-dir-horarios':     loadDirHorarios();    break;
+    case 'page-dir-carga':        loadCargaHoraria();   break;
     case 'page-dir-relatorios':   loadRelatorio();      break;
     case 'page-dir-diario':       loadDirDiario();      break;
     case 'page-dir-conteudo':     loadDirConteudo();    break;
@@ -575,6 +735,7 @@ function loadPageData(pageId) {
     case 'page-sec-financeiro':   loadSecFinanceiro();  break;
     case 'page-sec-auditoria':    loadSecAuditoria();   break;
     case 'page-sec-circulares':   loadSecCirculares();  break;
+    case 'page-sec-pesquisa':     loadSecPesquisa();    break;
   }
 }
 
@@ -629,7 +790,7 @@ function buildEmptyState(msg = 'Nenhum registro encontrado.') {
 function fillSelectTurmas(selectId, selected = '') {
   const sel    = document.getElementById(selectId);
   if (!sel) return;
-  const turmas = dbGetAll('turmas').filter(t => t.ativo);
+  const turmas = dbGetAllEscola('turmas').filter(t => t.ativo);
   const firstOpt = sel.querySelector('option[value=""]');
   const defaultText = firstOpt ? firstOpt.textContent : 'Selecione a turma...';
   sel.innerHTML = `<option value="">${esc(defaultText)}</option>`;
@@ -642,7 +803,7 @@ function fillSelectTurmas(selectId, selected = '') {
 function fillSelectDiscs(selectId, selected = '') {
   const sel  = document.getElementById(selectId);
   if (!sel) return;
-  const discs= dbGetAll('disciplinas').filter(d => d.ativo);
+  const discs= dbGetAllEscola('disciplinas').filter(d => d.ativo);
   const firstOpt = sel.querySelector('option[value=""]');
   const defaultText = firstOpt ? firstOpt.textContent : 'Selecione disciplina...';
   sel.innerHTML = `<option value="">${esc(defaultText)}</option>`;
@@ -670,13 +831,13 @@ function fillSelectProfs(selectId, selected = '') {
 }
 
 function getMyTurmas() {
-  if (SESSION.role === 'diretor') return dbGetAll('turmas').filter(t => t.ativo);
+  if (SESSION.role === 'diretor') return dbGetAllEscola('turmas').filter(t => t.ativo);
   // Professor: filtra pelas turmas atribuídas ao professor logado
   if (SESSION.user && SESSION.user.turmaIds && SESSION.user.turmaIds.length) {
-    return dbGetAll('turmas').filter(t => t.ativo && SESSION.user.turmaIds.includes(t.id));
+    return dbGetAllEscola('turmas').filter(t => t.ativo && SESSION.user.turmaIds.includes(t.id));
   }
   // Fallback: retorna todas se o professor não tiver turmas atribuídas
-  return dbGetAll('turmas').filter(t => t.ativo);
+  return dbGetAllEscola('turmas').filter(t => t.ativo);
 }
 
 // =============================================================
@@ -974,8 +1135,14 @@ function loadAlunoHorario() {
 // =============================================================
 function loadAvisosPage(bodyId, showActions = false) {
   const body   = document.getElementById(bodyId);
-  const avisos = dbGetAll('avisos').filter(a => a.ativo);
+  let avisos = dbGetAll('avisos').filter(a => a.ativo);
   if (!body) return;
+
+  // Filtrar avisos por turma do aluno (aluno só vê avisos da sua turma ou gerais)
+  if (SESSION && SESSION.role === 'aluno' && SESSION.user) {
+    const alunoTurmaId = SESSION.user.turmaId;
+    avisos = avisos.filter(a => !a.turmaId || a.turmaId === alunoTurmaId);
+  }
 
   if (!avisos.length) { body.innerHTML = buildEmptyState('Nenhum aviso publicado.'); return; }
 
@@ -1050,9 +1217,9 @@ function loadProfInicio() {
       <div class="stat-desc">turmas ativas</div>
     </div>
     <div class="stat-card">
-      <div class="stat-card-header"><span class="stat-card-label">Total de Alunos</span><div class="stat-icon green"><i class="fa-solid fa-user-graduate"></i></div></div>
-      <div class="stat-num">${alunos.length}</div>
-      <div class="stat-desc">alunos matriculados</div>
+      <div class="stat-card-header"><span class="stat-card-label">Meus Alunos</span><div class="stat-icon green"><i class="fa-solid fa-user-graduate"></i></div></div>
+      <div class="stat-num">${myAlunos.length}</div>
+      <div class="stat-desc">nas minhas turmas</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-header"><span class="stat-card-label">Atividades</span><div class="stat-icon amber"><i class="fa-solid fa-clipboard-list"></i></div></div>
@@ -1190,6 +1357,8 @@ function onNotaChange(input) {
 
   if (valor !== '' && (parseFloat(valor) < 0 || parseFloat(valor) > 10)) {
     input.style.borderColor = 'var(--danger)';
+    toast('Nota deve ser entre 0 e 10.', 'error');
+    input.value = '';
     return;
   }
   input.style.borderColor = '';
@@ -1844,10 +2013,10 @@ function saveAviso() {
 // DIRETOR: DASHBOARD
 // =============================================================
 function loadDirInicio() {
-  const turmas  = dbGetAll('turmas').filter(t => t.ativo);
-  const alunos  = dbGetAll('alunos').filter(a => a.ativo);
-  const profs   = dbGetAll('professores').filter(p => p.ativo);
-  const avisos  = dbGetAll('avisos').filter(a => a.ativo);
+  const turmas  = dbGetAllEscola('turmas').filter(t => t.ativo);
+  const alunos  = dbGetAllEscola('alunos').filter(a => a.ativo);
+  const profs   = dbGetAllEscola('professores').filter(p => p.ativo);
+  const avisos  = dbGetAllEscola('avisos').filter(a => a.ativo);
 
   const st = document.getElementById('dir-stats-row');
   st.innerHTML = `
@@ -1929,7 +2098,7 @@ function loadDirAlunos() {
   const filtroSerie  = document.getElementById('dir-alunos-filtro-serie')?.value || '';
   const search       = document.getElementById('dir-alunos-search')?.value.toLowerCase() || '';
   const tbody        = document.getElementById('dir-alunos-tbody');
-  const turmas       = dbGetAll('turmas');
+  const turmas       = dbGetAllEscola('turmas');
   const escolas      = dbGetAll('escolas_rede');
 
   // Helper para obter a série da turma
@@ -1938,33 +2107,36 @@ function loadDirAlunos() {
     return parts.length >= 2 ? parts[0] + ' ' + parts[1] : tNome;
   };
 
-  // Fill filters (once)
+  // Fill filters (always refresh to catch new data)
   const escolaSel = document.getElementById('dir-alunos-filtro-escola');
-  if (escolaSel && escolaSel.options.length <= 1) {
+  if (escolaSel) {
+    const prevEscola = escolaSel.value;
     escolaSel.innerHTML = '<option value="">Todas as escolas</option>';
     escolas.filter(e => e.ativa).forEach(e => {
-      escolaSel.innerHTML += `<option value="${esc(e.id)}">${esc(e.nomeAbreviado || e.nome)}</option>`;
+      escolaSel.innerHTML += `<option value="${esc(e.id)}" ${e.id === prevEscola ? 'selected' : ''}>${esc(e.nomeAbreviado || e.nome)}</option>`;
     });
   }
 
   const serieSel = document.getElementById('dir-alunos-filtro-serie');
-  if (serieSel && serieSel.options.length <= 1) {
+  if (serieSel) {
+    const prevSerie = serieSel.value;
     serieSel.innerHTML = '<option value="">Todas as séries</option>';
     const series = [...new Set(turmas.map(t => getSerie(t.nome)))].sort();
     series.forEach(s => {
-      serieSel.innerHTML += `<option value="${esc(s)}">${esc(s)}</option>`;
+      serieSel.innerHTML += `<option value="${esc(s)}" ${s === prevSerie ? 'selected' : ''}>${esc(s)}</option>`;
     });
   }
 
   const filtroSel = document.getElementById('dir-alunos-filtro-turma');
-  if (filtroSel && filtroSel.options.length <= 1) {
+  if (filtroSel) {
+    const prevTurma = filtroSel.value;
     filtroSel.innerHTML = '<option value="">Todas as turmas</option>';
     turmas.forEach(t => {
-      filtroSel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)} (${esc(t.turno)})</option>`;
+      filtroSel.innerHTML += `<option value="${esc(t.id)}" ${t.id === prevTurma ? 'selected' : ''}>${esc(t.nome)} (${esc(t.turno)})</option>`;
     });
   }
 
-  let alunos = dbGetAll('alunos').filter(a => a.ativo);
+  let alunos = dbGetAllEscola('alunos').filter(a => a.ativo);
   
   if (filtroEscola) {
     // Como a base atual não tem escolaId explícito na turma, vamos mapear implicitamente para a 1ª escola (Edith Nair) 
@@ -2084,10 +2256,10 @@ function saveAluno() {
     dbUpdate('alunos', id, data);
     toast('Aluno atualizado!', 'success');
   } else {
-    // Check duplicate matricula
-    const exists = dbGetAll('alunos').find(a => a.matricula === mat);
+    // Check duplicate matricula (scoped to current school)
+    const exists = dbGetAllEscola('alunos').find(a => a.matricula === mat && a.ativo);
     if (exists) { toast('Matrícula já cadastrada!', 'error'); return; }
-    dbAdd('alunos', { id: generateId('a'), ...data });
+    dbAdd('alunos', { id: generateId('a'), escolaId: ESCOLA_ATIVA || 'esc01', ...data });
     toast('Aluno cadastrado!', 'success');
   }
   closeModal('modal-aluno');
@@ -2105,7 +2277,8 @@ function confirmDeleteAluno(btn) {
 function deleteAluno(id) {
   dbUpdate('alunos', id, { ativo: false });
   toast('Aluno removido.', 'success');
-  loadDirAlunos();
+  if (SESSION.role === 'secretaria') { try { loadSecAlunos(); } catch(e){} }
+  else loadDirAlunos();
   closeModal('modal-confirm');
 }
 
@@ -2114,8 +2287,8 @@ function deleteAluno(id) {
 // =============================================================
 function loadDirProfessores() {
   const tbody  = document.getElementById('dir-profs-tbody');
-  const profs  = dbGetAll('professores').filter(p => p.ativo);
-  const turmas = dbGetAll('turmas');
+  const profs  = dbGetAllEscola('professores').filter(p => p.ativo);
+  const turmas = dbGetAllEscola('turmas');
 
   if (!profs.length) {
     tbody.innerHTML = `<tr><td colspan="4">${buildEmptyState('Nenhum professor cadastrado.')}</td></tr>`;
@@ -2145,7 +2318,7 @@ function openModalProfessor(profId = null) {
 
   const sel = document.getElementById('prof-modal-turmas');
   sel.innerHTML = '';
-  dbGetAll('turmas').filter(t => t.ativo).forEach(t => {
+  dbGetAllEscola('turmas').filter(t => t.ativo).forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.id;
     opt.textContent = `${t.nome} (${t.turno})`;
@@ -2179,7 +2352,10 @@ function saveProfessor() {
 
   if (!nome) { toast('Preencha o nome.', 'error'); return; }
 
-  const data = { nome, email, turmaIds, disciplinas: [], ativo: true };
+  // Preservar disciplinas existentes ao editar
+  const existingProf = id ? dbFind('professores', id) : null;
+  const disciplinas = existingProf ? (existingProf.disciplinas || []) : [];
+  const data = { nome, email, turmaIds, disciplinas, ativo: true };
 
   if (id) {
     dbUpdate('professores', id, data);
@@ -2210,26 +2386,66 @@ function deleteProfessor(id) {
 // =============================================================
 function loadDirTurmas() {
   const tbody  = document.getElementById('dir-turmas-tbody');
-  const turmas = dbGetAll('turmas').filter(t => t.ativo);
-  const profs  = dbGetAll('professores');
-  const alunos = dbGetAll('alunos').filter(a => a.ativo);
+  const turmas = dbGetAllEscola('turmas').filter(t => t.ativo);
+  const profs  = dbGetAllEscola('professores');
+  const alunos = dbGetAllEscola('alunos').filter(a => a.ativo);
+  const mods   = dbGetAll('modalidades_ensino');
+  const nivs   = dbGetAll('niveis_ensino');
 
-  if (!turmas.length) {
-    tbody.innerHTML = `<tr><td colspan="5">${buildEmptyState('Nenhuma turma cadastrada.')}</td></tr>`;
+  // Stats
+  const totalEl = document.getElementById('dir-turmas-total');
+  const alunosEl = document.getElementById('dir-turmas-alunos');
+  if (totalEl) totalEl.textContent = turmas.length;
+  if (alunosEl) alunosEl.textContent = alunos.length;
+
+  // Populate modalidade filter
+  const modFilter = document.getElementById('dir-turmas-filtro-mod');
+  if (modFilter && modFilter.options.length <= 1) {
+    mods.filter(m => m.ativo).forEach(m => {
+      modFilter.innerHTML += `<option value="${m.id}">${esc(m.nome)}</option>`;
+    });
+  }
+
+  // Apply filters
+  const filtroMod = document.getElementById('dir-turmas-filtro-mod')?.value || '';
+  const filtroTurno = document.getElementById('dir-turmas-filtro-turno')?.value || '';
+  let filtered = turmas;
+  if (filtroMod) filtered = filtered.filter(t => t.modalidadeId === filtroMod);
+  if (filtroTurno) filtered = filtered.filter(t => t.turno === filtroTurno);
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9">${buildEmptyState('Nenhuma turma encontrada.')}</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = turmas.map(t => {
+  tbody.innerHTML = filtered.map(t => {
     const prof = profs.find(p => p.id === t.professorId);
+    const profNames = t.professorIds?.length > 0
+      ? t.professorIds.map(pid => profs.find(p => p.id === pid)?.nome || '').filter(Boolean).join(', ')
+      : (prof ? prof.nome : '—');
     const qtd  = alunos.filter(a => a.turmaId === t.id).length;
+    const mod  = mods.find(m => m.id === t.modalidadeId);
+    const niv  = nivs.find(n => n.id === t.nivelEnsinoId);
     const turnoBadge = t.turno==='manhã' ? 'yellow' : t.turno==='tarde' ? 'amber' : 'purple';
+
+    // Build tags
+    let tags = '';
+    if (t.isMultisseriada) tags += `<span class="badge" style="background:rgba(37,99,235,0.1);color:#2563eb;border:1px solid rgba(37,99,235,0.2);font-size:.62rem"><i class="fa-solid fa-layer-group"></i> Multi</span> `;
+    if (t.isMultietapa) tags += `<span class="badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.2);font-size:.62rem"><i class="fa-solid fa-arrows-split-up-and-left"></i> Etapa</span> `;
+    if (t.isAEE) tags += `<span class="badge" style="background:rgba(168,85,247,0.1);color:#a855f7;border:1px solid rgba(168,85,247,0.2);font-size:.62rem"><i class="fa-solid fa-heart-pulse"></i> AEE</span> `;
+    if (!tags) tags = '<span style="color:var(--text-muted);font-size:.72rem">—</span>';
+
     return `<tr>
-      <td style="font-weight:700">${t.nome}</td>
-      <td><span class="badge badge-${turnoBadge}">${turnoIcon(t.turno)} ${t.turno}</span></td>
-      <td>${prof ? prof.nome : '—'}</td>
+      <td style="font-weight:700">${esc(t.nome)}</td>
+      <td><span style="font-size:.78rem;color:var(--text-muted)">${mod ? esc(mod.nome) : '—'}</span></td>
+      <td><span style="font-size:.78rem">${niv ? esc(niv.sigla) : ''} ${t.serie ? esc(t.serie) : ''}</span></td>
+      <td><span class="badge badge-${turnoBadge}">${turnoIcon(t.turno)} ${esc(t.turno)}</span></td>
+      <td class="text-center"><span style="font-weight:700;font-size:.82rem">${t.cargaHorariaSemanal || '—'}</span></td>
+      <td style="font-size:.78rem">${esc(profNames)}</td>
       <td class="text-center"><span class="badge badge-blue">${qtd}</span></td>
+      <td>${tags}</td>
       <td class="text-right" style="display:flex; gap:6px; justify-content:flex-end">
-        <button class="btn btn-sm btn-ghost" data-id="${t.id}" onclick="editTurma(this.dataset.id)"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm btn-ghost" data-id="${t.id}" onclick="editTurmaInteligente(this.dataset.id)"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-sm btn-danger" data-id="${t.id}" onclick="confirmDeleteTurma(this)">
           <i class="fa-solid fa-trash-can"></i>
         </button>
@@ -2238,39 +2454,175 @@ function loadDirTurmas() {
   }).join('');
 }
 
-function openModalTurma(turmaId = null) {
-  document.getElementById('turma-id').value = turmaId || '';
-  document.getElementById('turma-modal-title').textContent = turmaId ? 'Editar Turma' : 'Nova Turma';
+// ── SMART TURMA MODAL ──
+function openModalTurmaInteligente(turmaId = null) {
+  document.getElementById('turma-int-id').value = turmaId || '';
+  document.getElementById('turma-int-title').textContent = turmaId ? 'Editar Turma' : 'Nova Turma Inteligente';
 
-  const profSel = document.getElementById('turma-professor');
-  profSel.innerHTML = '<option value="">Sem professor</option>';
-  fillSelectProfs('turma-professor');
+  // Populate modalidades
+  const modSel = document.getElementById('turma-int-modalidade');
+  const mods = dbGetAll('modalidades_ensino').filter(m => m.ativo);
+  modSel.innerHTML = '<option value="">Selecione a modalidade...</option>';
+  mods.forEach(m => { modSel.innerHTML += `<option value="${m.id}">${esc(m.nome)}</option>`; });
 
+  // Reset fields
+  document.getElementById('turma-int-nivel').innerHTML = '<option value="">Selecione o nível...</option>';
+  document.getElementById('turma-int-serie').innerHTML = '<option value="">Selecione a série...</option>';
+  document.getElementById('turma-int-nome').value = '';
+  document.getElementById('turma-int-turno').value = 'manhã';
+  document.getElementById('turma-int-ch').value = 25;
+  document.getElementById('turma-int-duracao').value = 50;
+  document.getElementById('turma-int-multisseriada').checked = false;
+  document.getElementById('turma-int-multietapa').checked = false;
+  document.getElementById('turma-int-aee').checked = false;
+  document.getElementById('turma-int-multisseriada-panel').style.display = 'none';
+  document.getElementById('turma-int-multietapa-panel').style.display = 'none';
+  document.getElementById('turma-int-info').style.display = 'none';
+
+  // Pre-fill if editing
   if (turmaId) {
     const t = dbFind('turmas', turmaId);
     if (t) {
-      document.getElementById('turma-nome').value   = t.nome;
-      document.getElementById('turma-turno').value  = t.turno;
-      document.getElementById('turma-professor').value = t.professorId || '';
+      modSel.value = t.modalidadeId || '';
+      onTurmaModalidadeChange();
+      document.getElementById('turma-int-nivel').value = t.nivelEnsinoId || '';
+      onTurmaNivelChange();
+      document.getElementById('turma-int-serie').value = t.serie || '';
+      document.getElementById('turma-int-nome').value = t.nome || '';
+      document.getElementById('turma-int-turno').value = t.turno || 'manhã';
+      document.getElementById('turma-int-ch').value = t.cargaHorariaSemanal || 25;
+      document.getElementById('turma-int-duracao').value = t.duracaoAulaMinutos || 50;
+      document.getElementById('turma-int-multisseriada').checked = t.isMultisseriada || false;
+      document.getElementById('turma-int-multietapa').checked = t.isMultietapa || false;
+      document.getElementById('turma-int-aee').checked = t.isAEE || false;
+      if (t.isMultisseriada) toggleMultisseriada();
+      if (t.isMultietapa) toggleMultietapa();
     }
-  } else {
-    document.getElementById('turma-nome').value  = '';
-    document.getElementById('turma-turno').value = 'manhã';
   }
-  openModal('modal-turma');
+
+  openModal('modal-turma-inteligente');
 }
 
-function editTurma(id) { openModalTurma(id); }
+function editTurmaInteligente(id) { openModalTurmaInteligente(id); }
+// Keep old editTurma working
+function editTurma(id) { openModalTurmaInteligente(id); }
 
-function saveTurma() {
-  const id   = document.getElementById('turma-id').value;
-  const nome = document.getElementById('turma-nome').value.trim();
-  const turno= document.getElementById('turma-turno').value;
-  const profId = document.getElementById('turma-professor').value;
+function onTurmaModalidadeChange() {
+  const modId = document.getElementById('turma-int-modalidade').value;
+  const nivSel = document.getElementById('turma-int-nivel');
+  const serieSel = document.getElementById('turma-int-serie');
+  nivSel.innerHTML = '<option value="">Selecione o nível...</option>';
+  serieSel.innerHTML = '<option value="">Selecione a série...</option>';
+
+  if (!modId) return;
+
+  const nivs = dbGetAll('niveis_ensino').filter(n => n.modalidadeId === modId && n.ativo);
+  nivs.sort((a,b) => (a.ordemExibicao||0) - (b.ordemExibicao||0));
+  nivs.forEach(n => { nivSel.innerHTML += `<option value="${n.id}">${esc(n.nome)}</option>`; });
+
+  // Show CH info
+  const mod = dbFind('modalidades_ensino', modId);
+  if (mod) {
+    const info = document.getElementById('turma-int-info');
+    const infoText = document.getElementById('turma-int-info-text');
+    info.style.display = '';
+    let infoMsg = `CH mínima anual: ${mod.cargaHorariaAnualMinima}h · ${mod.diasLetivosMinimos} dias letivos`;
+    if (mod.registroCargaHoraria === 'manual_diario') infoMsg += ' · Registro manual (blocos de tempo)';
+    if (mod.usaCamposExperiencia) infoMsg += ' · Campos de Experiência BNCC';
+    if (!mod.usaNotasBimestrais) infoMsg += ' · Sem notas bimestrais';
+    infoText.textContent = infoMsg;
+  }
+}
+
+function onTurmaNivelChange() {
+  const nivId = document.getElementById('turma-int-nivel').value;
+  const serieSel = document.getElementById('turma-int-serie');
+  serieSel.innerHTML = '<option value="">Selecione a série...</option>';
+
+  if (!nivId) return;
+
+  const niv = dbFind('niveis_ensino', nivId);
+  if (niv && niv.subniveis && niv.subniveis.length) {
+    niv.subniveis.forEach(s => { serieSel.innerHTML += `<option value="${s}">${esc(s)}</option>`; });
+  } else {
+    serieSel.innerHTML += '<option value="unica">Série Única</option>';
+  }
+
+  // Auto-populate multisseriada options
+  if (document.getElementById('turma-int-multisseriada').checked) {
+    populateMultisseriadaOptions(nivId);
+  }
+}
+
+function toggleMultisseriada() {
+  const checked = document.getElementById('turma-int-multisseriada').checked;
+  document.getElementById('turma-int-multisseriada-panel').style.display = checked ? '' : 'none';
+  if (checked) {
+    const nivId = document.getElementById('turma-int-nivel').value;
+    if (nivId) populateMultisseriadaOptions(nivId);
+  }
+}
+
+function populateMultisseriadaOptions(nivId) {
+  const container = document.getElementById('turma-int-series-agrupadas');
+  const niv = dbFind('niveis_ensino', nivId);
+  if (!niv || !niv.subniveis) { container.innerHTML = ''; return; }
+  container.innerHTML = niv.subniveis.map(s => `
+    <label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:99px;">
+      <input type="checkbox" class="turma-int-serie-check" value="${s}"> ${esc(s)}
+    </label>
+  `).join('');
+}
+
+function toggleMultietapa() {
+  const checked = document.getElementById('turma-int-multietapa').checked;
+  document.getElementById('turma-int-multietapa-panel').style.display = checked ? '' : 'none';
+  if (checked) {
+    const container = document.getElementById('turma-int-etapas-agrupadas');
+    const mods = dbGetAll('modalidades_ensino').filter(m => m.ativo);
+    container.innerHTML = mods.map(m => `
+      <label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:99px;">
+        <input type="checkbox" class="turma-int-etapa-check" value="${m.id}"> ${esc(m.nome)}
+      </label>
+    `).join('');
+  }
+}
+
+function saveTurmaInteligente() {
+  const id = document.getElementById('turma-int-id').value;
+  const nome = document.getElementById('turma-int-nome').value.trim();
+  const modalidadeId = document.getElementById('turma-int-modalidade').value;
+  const nivelEnsinoId = document.getElementById('turma-int-nivel').value;
+  const serie = document.getElementById('turma-int-serie').value;
+  const turno = document.getElementById('turma-int-turno').value;
+  const ch = parseInt(document.getElementById('turma-int-ch').value) || 25;
+  const duracao = parseInt(document.getElementById('turma-int-duracao').value) || 50;
+  const isMultisseriada = document.getElementById('turma-int-multisseriada').checked;
+  const isMultietapa = document.getElementById('turma-int-multietapa').checked;
+  const isAEE = document.getElementById('turma-int-aee').checked;
 
   if (!nome) { toast('Preencha o nome da turma.', 'error'); return; }
+  if (!modalidadeId) { toast('Selecione a modalidade.', 'error'); return; }
 
-  const data = { nome, turno, professorId: profId || null, ativo: true };
+  // Collect multisseriada series
+  const seriesAgrupadas = isMultisseriada
+    ? [...document.querySelectorAll('.turma-int-serie-check:checked')].map(c => c.value)
+    : [];
+
+  // Collect multietapa etapas
+  const etapasAgrupadas = isMultietapa
+    ? [...document.querySelectorAll('.turma-int-etapa-check:checked')].map(c => c.value)
+    : [];
+
+  const data = {
+    nome, turno, modalidadeId, nivelEnsinoId: nivelEnsinoId || null, serie: serie || null,
+    isMultisseriada, seriesAgrupadas, isMultietapa, etapasAgrupadas,
+    isAEE, tagsAEE: [],
+    cargaHorariaSemanal: ch, duracaoAulaMinutos: duracao,
+    professorIds: [], professorId: null,
+    escolaId: ESCOLA_ATIVA || 'esc01',
+    ativo: true
+  };
 
   if (id) {
     dbUpdate('turmas', id, data);
@@ -2279,14 +2631,14 @@ function saveTurma() {
     dbAdd('turmas', { id: generateId('t'), ...data });
     toast('Turma criada!', 'success');
   }
-  closeModal('modal-turma');
+  closeModal('modal-turma-inteligente');
   loadDirTurmas();
 }
 
 function confirmDeleteTurma(btn) {
   const id = btn.dataset.id;
   const turma = dbFind('turmas', id);
-  const alunosCount = dbGetAll('alunos').filter(a => a.turmaId === id && a.ativo).length;
+  const alunosCount = dbGetAllEscola('alunos').filter(a => a.turmaId === id && a.ativo).length;
   if (alunosCount > 0) {
     toast(`Esta turma tem ${alunosCount} aluno(s). Reatribua os alunos antes de excluir.`, 'error');
     return;
@@ -2299,6 +2651,282 @@ function deleteTurma(id) {
   toast('Turma removida.', 'success');
   loadDirTurmas();
   closeModal('modal-confirm');
+}
+
+// =============================================================
+// DIRETOR: CARGA HORÁRIA
+// =============================================================
+function loadCargaHoraria() {
+  const turmas = dbGetAllEscola('turmas').filter(t => t.ativo);
+  const registros = dbGetAllEscola('registro_carga_horaria');
+  const mods = dbGetAll('modalidades_ensino');
+  const profs = dbGetAllEscola('professores');
+  const progressGrid = document.getElementById('ch-progress-grid');
+  const tbody = document.getElementById('ch-registros-tbody');
+
+  // Populate filter selects (once)
+  const turmaFilter = document.getElementById('ch-filtro-turma');
+  if (turmaFilter && turmaFilter.options.length <= 1) {
+    turmas.forEach(t => { turmaFilter.innerHTML += `<option value="${t.id}">${esc(t.nome)}</option>`; });
+  }
+  const modFilter = document.getElementById('ch-filtro-modalidade');
+  if (modFilter && modFilter.options.length <= 1) {
+    mods.filter(m => m.ativo).forEach(m => { modFilter.innerHTML += `<option value="${m.id}">${esc(m.nome)}</option>`; });
+  }
+
+  // Apply filters
+  const filtroTurma = turmaFilter?.value || '';
+  const filtroMod = modFilter?.value || '';
+  let filteredTurmas = turmas;
+  if (filtroTurma) filteredTurmas = filteredTurmas.filter(t => t.id === filtroTurma);
+  if (filtroMod) filteredTurmas = filteredTurmas.filter(t => t.modalidadeId === filtroMod);
+
+  // Stats
+  let totalPercent = 0;
+  document.getElementById('ch-stat-turmas').textContent = filteredTurmas.length;
+
+  // Build progress cards
+  if (!filteredTurmas.length) {
+    progressGrid.innerHTML = buildEmptyState('Nenhuma turma encontrada.');
+    tbody.innerHTML = `<tr><td colspan="7">${buildEmptyState('Sem registros.')}</td></tr>`;
+    document.getElementById('ch-stat-media').textContent = '0%';
+    return;
+  }
+
+  progressGrid.innerHTML = filteredTurmas.map(t => {
+    const progress = calcularProgressoCH(t, registros);
+    totalPercent += progress.percent;
+    const mod = mods.find(m => m.id === t.modalidadeId);
+    const barColor = progress.percent >= 90 ? '#10b981' : progress.percent >= 70 ? '#f59e0b' : '#ef4444';
+    const statusIcon = progress.deficit > 0 ? '⚠️' : '✅';
+    const statusText = progress.deficit > 0 ? `Déficit: ${progress.deficit}h` : 'Em dia';
+
+    return `<div style="padding:16px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg);">
+      <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+        <div>
+          <div style="font-weight:800; font-size:.88rem; color:var(--text-primary)">${esc(t.nome)}</div>
+          <div style="font-size:.68rem; color:var(--text-muted)">${mod ? esc(mod.nome) : ''}</div>
+        </div>
+        <span style="font-size:.68rem; padding:2px 8px; border-radius:99px; background:${barColor}15; color:${barColor}; font-weight:700; border:1px solid ${barColor}30">${statusIcon} ${statusText}</span>
+      </div>
+      <div style="background:var(--border); border-radius:99px; height:8px; overflow:hidden; margin-bottom:6px;">
+        <div style="background:${barColor}; height:100%; width:${Math.min(progress.percent, 100)}%; border-radius:99px; transition:width 0.6s ease;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:.7rem; color:var(--text-muted);">
+        <span>${progress.realizada}h / ${progress.meta}h</span>
+        <span style="font-weight:800; color:${barColor}">${progress.percent}%</span>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:6px; font-size:.65rem; color:var(--text-muted);">
+        <span><i class="fa-solid fa-calendar-days"></i> ${progress.diasRegistrados} dias</span>
+        <span><i class="fa-solid fa-clock"></i> ${progress.minutosTotal} min registrados</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const avgPercent = Math.round(totalPercent / filteredTurmas.length);
+  document.getElementById('ch-stat-media').textContent = avgPercent + '%';
+
+  // Build daily log table
+  let filteredRegistros = registros;
+  if (filtroTurma) filteredRegistros = filteredRegistros.filter(r => r.turmaId === filtroTurma);
+  if (filtroMod) {
+    const modTurmaIds = filteredTurmas.map(t => t.id);
+    filteredRegistros = filteredRegistros.filter(r => modTurmaIds.includes(r.turmaId));
+  }
+  filteredRegistros.sort((a,b) => (b.data || '').localeCompare(a.data || ''));
+
+  if (!filteredRegistros.length) {
+    tbody.innerHTML = `<tr><td colspan="7">${buildEmptyState('Nenhum registro de carga horária.')}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filteredRegistros.map(r => {
+    const turma = turmas.find(t => t.id === r.turmaId);
+    const prof = profs.find(p => p.id === r.professorId);
+    const blocosStr = (r.blocos || []).map(b => `${b.inicio}-${b.fim}`).join(', ');
+    const dataFormatada = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—';
+
+    return `<tr>
+      <td style="font-weight:700; white-space:nowrap">${dataFormatada}</td>
+      <td>${turma ? esc(turma.nome) : '—'}</td>
+      <td style="font-size:.75rem; color:var(--text-muted)">${esc(blocosStr) || '—'}</td>
+      <td class="text-center"><span class="badge badge-purple">${r.totalMinutos || 0}</span></td>
+      <td style="font-size:.78rem">${prof ? esc(prof.nome) : '—'}</td>
+      <td style="font-size:.75rem; color:var(--text-muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(r.observacao || '')}</td>
+      <td class="text-right">
+        <button class="btn btn-sm btn-ghost" data-id="${r.id}" onclick="editBlocoTempo(this.dataset.id)"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm btn-danger" data-id="${r.id}" onclick="confirmDeleteBlocoTempo(this)"><i class="fa-solid fa-trash-can"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function calcularProgressoCH(turma, registros) {
+  const mod = dbFind('modalidades_ensino', turma.modalidadeId);
+  const metaAnual = mod?.cargaHorariaAnualMinima || 800; // em horas
+  const diasLetivos = mod?.diasLetivosMinimos || 200;
+
+  // Registros desta turma
+  const regs = registros.filter(r => r.turmaId === turma.id);
+  const minutosTotal = regs.reduce((sum, r) => sum + (r.totalMinutos || 0), 0);
+  const horasRealizada = Math.round(minutosTotal / 60 * 10) / 10;
+  const percent = metaAnual > 0 ? Math.round((horasRealizada / metaAnual) * 100) : 0;
+
+  // Calcular expectativa proporcional ao período do ano
+  const now = new Date();
+  const anoInicio = new Date(now.getFullYear(), 1, 1); // Feb 1
+  const anoFim = new Date(now.getFullYear(), 11, 15); // Dec 15
+  const totalDias = (anoFim - anoInicio) / (1000*60*60*24);
+  const diasPassados = Math.max(0, (now - anoInicio) / (1000*60*60*24));
+  const proporcao = Math.min(diasPassados / totalDias, 1);
+  const metaEsperada = Math.round(metaAnual * proporcao);
+  const deficit = Math.max(0, Math.round(metaEsperada - horasRealizada));
+
+  return {
+    meta: metaAnual,
+    realizada: horasRealizada,
+    percent: Math.min(percent, 100),
+    deficit,
+    minutosTotal,
+    diasRegistrados: new Set(regs.map(r => r.data)).size
+  };
+}
+
+function openModalBlocoTempo(registroId = null) {
+  document.getElementById('bloco-tempo-id').value = registroId || '';
+  const turmaSelect = document.getElementById('bloco-tempo-turma');
+  const turmas = dbGetAllEscola('turmas').filter(t => t.ativo);
+  turmaSelect.innerHTML = '<option value="">Selecione a turma...</option>';
+  turmas.forEach(t => { turmaSelect.innerHTML += `<option value="${t.id}">${esc(t.nome)}</option>`; });
+
+  document.getElementById('bloco-tempo-data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('bloco-tempo-obs').value = '';
+  document.getElementById('bloco-tempo-total').textContent = '0 min (0h 0min)';
+
+  const rowsContainer = document.getElementById('bloco-tempo-rows');
+  rowsContainer.innerHTML = '';
+
+  if (registroId) {
+    const reg = dbFind('registro_carga_horaria', registroId);
+    if (reg) {
+      turmaSelect.value = reg.turmaId || '';
+      document.getElementById('bloco-tempo-data').value = reg.data || '';
+      document.getElementById('bloco-tempo-obs').value = reg.observacao || '';
+      (reg.blocos || []).forEach(b => addBlocoRow(b.inicio, b.fim, b.atividade));
+    }
+  }
+
+  if (!rowsContainer.children.length) {
+    addBlocoRow('07:30', '09:00', '');
+  }
+
+  updateBlocoTotal();
+  openModal('modal-bloco-tempo');
+}
+
+function editBlocoTempo(id) { openModalBlocoTempo(id); }
+
+let _blocoRowIdx = 0;
+function addBlocoRow(inicio = '', fim = '', atividade = '') {
+  _blocoRowIdx++;
+  const container = document.getElementById('bloco-tempo-rows');
+  const row = document.createElement('div');
+  row.className = 'bloco-row';
+  row.style.cssText = 'display:flex; gap:6px; align-items:center; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md);';
+  row.innerHTML = `
+    <input type="time" class="form-control bloco-inicio" value="${inicio}" style="width:90px; font-size:.78rem" onchange="updateBlocoTotal()">
+    <span style="color:var(--text-muted); font-size:.72rem">→</span>
+    <input type="time" class="form-control bloco-fim" value="${fim}" style="width:90px; font-size:.78rem" onchange="updateBlocoTotal()">
+    <input type="text" class="form-control bloco-atividade" value="${esc(atividade)}" placeholder="Atividade..." style="flex:1; font-size:.78rem">
+    <button class="btn btn-sm" style="color:#ef4444; background:none; border:none; padding:4px;" onclick="removeBlocoRow(this)">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  `;
+  container.appendChild(row);
+  updateBlocoTotal();
+}
+
+function removeBlocoRow(btn) {
+  btn.closest('.bloco-row').remove();
+  updateBlocoTotal();
+}
+
+function updateBlocoTotal() {
+  const rows = document.querySelectorAll('#bloco-tempo-rows .bloco-row');
+  let totalMin = 0;
+  rows.forEach(row => {
+    const inicio = row.querySelector('.bloco-inicio').value;
+    const fim = row.querySelector('.bloco-fim').value;
+    if (inicio && fim) {
+      const [ih, im] = inicio.split(':').map(Number);
+      const [fh, fm] = fim.split(':').map(Number);
+      const mins = (fh * 60 + fm) - (ih * 60 + im);
+      if (mins > 0) totalMin += mins;
+    }
+  });
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  document.getElementById('bloco-tempo-total').textContent = `${totalMin} min (${h}h ${m}min)`;
+}
+
+function saveBlocoTempo() {
+  const id = document.getElementById('bloco-tempo-id').value;
+  const turmaId = document.getElementById('bloco-tempo-turma').value;
+  const data = document.getElementById('bloco-tempo-data').value;
+  const obs = document.getElementById('bloco-tempo-obs').value.trim();
+
+  if (!turmaId) { toast('Selecione a turma.', 'error'); return; }
+  if (!data) { toast('Informe a data.', 'error'); return; }
+
+  // Collect blocks
+  const rows = document.querySelectorAll('#bloco-tempo-rows .bloco-row');
+  const blocos = [];
+  let totalMinutos = 0;
+
+  rows.forEach(row => {
+    const inicio = row.querySelector('.bloco-inicio').value;
+    const fim = row.querySelector('.bloco-fim').value;
+    const atividade = row.querySelector('.bloco-atividade').value.trim();
+    if (inicio && fim) {
+      const [ih, im] = inicio.split(':').map(Number);
+      const [fh, fm] = fim.split(':').map(Number);
+      const mins = (fh * 60 + fm) - (ih * 60 + im);
+      if (mins > 0) {
+        blocos.push({ inicio, fim, atividade, minutos: mins });
+        totalMinutos += mins;
+      }
+    }
+  });
+
+  if (!blocos.length) { toast('Adicione pelo menos um bloco de tempo.', 'error'); return; }
+
+  const docData = {
+    turmaId, data, blocos, totalMinutos,
+    professorId: null,
+    observacao: obs,
+    escolaId: ESCOLA_ATIVA || 'esc01',
+    criadoEm: data
+  };
+
+  if (id) {
+    dbUpdate('registro_carga_horaria', id, docData);
+    toast('Registro atualizado!', 'success');
+  } else {
+    dbAdd('registro_carga_horaria', { id: generateId('rch'), ...docData });
+    toast('Carga horária registrada!', 'success');
+  }
+  closeModal('modal-bloco-tempo');
+  loadCargaHoraria();
+}
+
+function confirmDeleteBlocoTempo(btn) {
+  const id = btn.dataset.id;
+  confirmAction('Excluir este registro de carga horária?', () => {
+    dbDelete('registro_carga_horaria', id);
+    toast('Registro removido.', 'success');
+    loadCargaHoraria();
+    closeModal('modal-confirm');
+  });
 }
 
 // =============================================================
@@ -2321,11 +2949,11 @@ function loadRelatorio() {
     });
   }
 
-  let alunos = dbGetAll('alunos').filter(a => a.ativo);
+  let alunos = dbGetAllEscola('alunos').filter(a => a.ativo);
   if (filtroT) alunos = alunos.filter(a => a.turmaId === filtroT);
 
-  const disciplinas = dbGetAll('disciplinas').filter(d=>d.ativo);
-  const turmas      = dbGetAll('turmas');
+  const disciplinas = dbGetAllEscola('disciplinas').filter(d=>d.ativo);
+  const turmas      = dbGetAllEscola('turmas');
   const todasNotas  = dbGetAll('notas');
 
   // Build rows: aluno × disciplina
@@ -2336,6 +2964,11 @@ function loadRelatorio() {
       if (nota || filtroT || filtroB) {
         const b1 = nota?.b1 ?? null; const b2 = nota?.b2 ?? null;
         const b3 = nota?.b3 ?? null; const b4 = nota?.b4 ?? null;
+        // Filtro de bimestre: se selecionado, pular registros sem nota nesse bimestre
+        if (filtroB) {
+          const bKey = `b${filtroB}`;
+          if (!nota || (nota[bKey] === null || nota[bKey] === undefined)) return;
+        }
         if (!nota && !filtroB) return; // skip empty
         const anual = getNotaAnual(b1, b2, b3, b4);
         const turma = turmas.find(t => t.id === a.turmaId);
@@ -2479,7 +3112,7 @@ function loadDirHorarios() {
   if (!sel) return;
   if (sel.options.length <= 1) {
     sel.innerHTML = '<option value="">Selecione a turma...</option>';
-    dbGetAll('turmas').filter(t => t.ativo).forEach(t => {
+    dbGetAllEscola('turmas').filter(t => t.ativo).forEach(t => {
       sel.innerHTML += `<option value="${esc(t.id)}">${esc(t.nome)} (${turnoIcon(t.turno)} ${esc(t.turno)})</option>`;
     });
   }
@@ -2496,10 +3129,10 @@ function loadDirHorarios() {
     return;
   }
   const turma = dbFind('turmas', turmaId);
-  const grade = dbGetAll('grade_horaria').filter(g => g.turmaId === turmaId);
-  const discs = dbGetAll('disciplinas');
-  const profs = dbGetAll('professores');
-  const alunosTurma = dbGetAll('alunos').filter(a => a.ativo && a.turmaId === turmaId);
+  const grade = dbGetAllEscola('grade_horaria').filter(g => g.turmaId === turmaId);
+  const discs = dbGetAllEscola('disciplinas');
+  const profs = dbGetAllEscola('professores');
+  const alunosTurma = dbGetAllEscola('alunos').filter(a => a.ativo && a.turmaId === turmaId);
   const totalAulas = grade.reduce((s, g) => s + g.qtdAulas, 0);
   if (totalEl) totalEl.textContent = `${totalAulas} aulas/semana`;
 
@@ -2671,13 +3304,18 @@ function loadConfigPage() {
 }
 
 function saveEscolaConfig() {
-  const escola = {
+  const escolaData = {
     nome:     document.getElementById('cfg-escola-nome').value.trim(),
     cidade:   document.getElementById('cfg-escola-cidade').value.trim(),
     whatsapp: document.getElementById('cfg-escola-wpp').value.trim(),
     email:    document.getElementById('cfg-escola-email').value.trim(),
   };
-  dbSet('escola', { ...dbGet('escola'), ...escola });
+  // Persistir diretamente na coleção escolas_rede (multi-tenant)
+  if (ESCOLA_ATIVA && ESCOLA_ATIVA !== 'semed') {
+    dbUpdate('escolas_rede', ESCOLA_ATIVA, escolaData);
+  } else {
+    dbSet('escola', { ...dbGet('escola'), ...escolaData });
+  }
   toast('Dados da escola salvos!', 'success');
 }
 
@@ -3236,10 +3874,14 @@ function renderProfStatus() {
   body.innerHTML = profs.map(p => {
     const turmaIds = p.turmaIds || [];
     const profAlunos = alunos.filter(a => turmaIds.includes(a.turmaId));
-    const totalExpected = profAlunos.length * discs.length;
+    // Usar disciplinas do professor se disponível, senão todas
+    const profDiscs = (p.disciplinas && p.disciplinas.length > 0)
+      ? discs.filter(d => p.disciplinas.includes(d.id))
+      : discs;
+    const totalExpected = profAlunos.length * profDiscs.length;
     let filled = 0;
     profAlunos.forEach(a => {
-      discs.forEach(d => {
+      profDiscs.forEach(d => {
         const nota = todasNotas.find(n => n.alunoId === a.id && n.disciplinaId === d.id);
         if (nota && nota[bKey] !== null && nota[bKey] !== undefined) filled++;
       });
@@ -3277,7 +3919,8 @@ function generateBoletimPDF(alunoId) {
     const aula = f.aulas.find(a => a.alunoId === aluno.id);
     if (aula) { totalAulas++; if (aula.status === 'presente') presencas++; }
   });
-  const freqPct = totalAulas > 0 ? ((presencas / totalAulas) * 100).toFixed(1) : '—';
+  const freqPctNum = totalAulas > 0 ? (presencas / totalAulas) * 100 : 0;
+  const freqPct = totalAulas > 0 ? freqPctNum.toFixed(1) : '—';
 
   const rows = disciplinas.map(d => {
     const n = notas.find(n => n.disciplinaId === d.id);
@@ -3359,7 +4002,7 @@ function generateBoletimPDF(alunoId) {
       <div class="freq-item"><div class="freq-num" style="color:#2563eb">${totalAulas}</div><div class="freq-label">Aulas Registradas</div></div>
       <div class="freq-item"><div class="freq-num" style="color:#059669">${presencas}</div><div class="freq-label">Presenças</div></div>
       <div class="freq-item"><div class="freq-num" style="color:#dc2626">${totalAulas - presencas}</div><div class="freq-label">Faltas</div></div>
-      <div class="freq-item"><div class="freq-num" style="color:${parseFloat(freqPct) >= 75 ? '#059669' : '#dc2626'}">${freqPct}%</div><div class="freq-label">Frequência</div></div>
+      <div class="freq-item"><div class="freq-num" style="color:${freqPctNum >= 75 ? '#059669' : '#dc2626'}">${freqPct}%</div><div class="freq-label">Frequência</div></div>
     </div>
 
     <div class="seal">
@@ -3994,4 +4637,206 @@ function renderProfPendencias() {
       </div>
     `).join('')}
   `;
+}
+
+// =============================================================
+// SEMED: AUDITORIA EDUCACENSO
+// =============================================================
+function loadSecAuditoria() {
+  const escolas = dbGetAll('escolas_rede').filter(e => e.ativa);
+  const allAlunos = dbGetAll('alunos').filter(a => a.ativo);
+  const allTurmas = dbGetAll('turmas').filter(t => t.ativo);
+  const dicionario = dbGetAll('dicionario_inep');
+
+  // Filter
+  const escolaFilter = document.getElementById('censo-filtro-escola');
+  if (escolaFilter && escolaFilter.options.length <= 1) {
+    escolas.forEach(e => { escolaFilter.innerHTML += `<option value="${e.id}">${esc(e.nomeAbreviado)}</option>`; });
+  }
+  const filtroEscola = escolaFilter?.value || '';
+  const filteredEscolas = filtroEscola ? escolas.filter(e => e.id === filtroEscola) : escolas;
+
+  // Stats
+  document.getElementById('censo-stat-escolas').textContent = filteredEscolas.length;
+
+  // ── CONFORMITY SCORE CARDS ──
+  const scoreOverview = document.getElementById('censo-score-overview');
+  let totalChecks = 0, passedChecks = 0;
+
+  // Required school fields
+  const schoolRequiredFields = ['codigoINEP','nome','endereco','cidade','estado','telefone','email','dependenciaAdm'];
+  const infraRequiredFields = ['agua','esgoto','energia'];
+
+  // Required student fields
+  const studentRequiredFields = ['nome','dataNascimento','sexo','corRaca','cpf','turmaId','certidaoNascimento'];
+
+  // Run checks
+  const schoolScores = filteredEscolas.map(e => {
+    let checks = 0, passed = 0;
+    schoolRequiredFields.forEach(f => { checks++; if (e[f]) passed++; });
+    infraRequiredFields.forEach(f => { checks++; if (e.infraestrutura && e.infraestrutura[f]) passed++; });
+    totalChecks += checks; passedChecks += passed;
+    return { escola: e, checks, passed, percent: checks > 0 ? Math.round(passed/checks*100) : 0 };
+  });
+
+  const studentScores = filteredEscolas.map(e => {
+    const alunos = allAlunos.filter(a => a.escolaId === e.id || (allTurmas.find(t => t.id === a.turmaId)?.escolaId === e.id));
+    let checks = 0, passed = 0;
+    alunos.forEach(a => {
+      studentRequiredFields.forEach(f => { checks++; if (a[f]) passed++; });
+    });
+    totalChecks += checks; passedChecks += passed;
+    return { escola: e, alunos, checks, passed, percent: checks > 0 ? Math.round(passed/checks*100) : 0, total: alunos.length };
+  });
+
+  const globalPercent = totalChecks > 0 ? Math.round(passedChecks/totalChecks*100) : 0;
+  document.getElementById('censo-stat-score').textContent = globalPercent + '%';
+
+  // Score cards
+  const scoreColor = p => p >= 90 ? '#10b981' : p >= 70 ? '#f59e0b' : '#ef4444';
+  scoreOverview.innerHTML = `
+    <div style="padding:14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg); text-align:center;">
+      <div style="font-size:.68rem; color:var(--text-muted); margin-bottom:4px;">Conformidade Global</div>
+      <div style="font-size:1.8rem; font-weight:900; color:${scoreColor(globalPercent)}">${globalPercent}%</div>
+      <div style="background:var(--border); border-radius:99px; height:6px; overflow:hidden; margin-top:6px;">
+        <div style="background:${scoreColor(globalPercent)}; height:100%; width:${globalPercent}%; border-radius:99px;"></div>
+      </div>
+    </div>
+    <div style="padding:14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg); text-align:center;">
+      <div style="font-size:.68rem; color:var(--text-muted); margin-bottom:4px;">Escolas Validadas</div>
+      <div style="font-size:1.8rem; font-weight:900; color:#2563eb">${schoolScores.filter(s => s.percent === 100).length}/${filteredEscolas.length}</div>
+    </div>
+    <div style="padding:14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg); text-align:center;">
+      <div style="font-size:.68rem; color:var(--text-muted); margin-bottom:4px;">Total Alunos</div>
+      <div style="font-size:1.8rem; font-weight:900; color:#059669">${allAlunos.length}</div>
+    </div>
+    <div style="padding:14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg); text-align:center;">
+      <div style="font-size:.68rem; color:var(--text-muted); margin-bottom:4px;">Com Deficiência</div>
+      <div style="font-size:1.8rem; font-weight:900; color:#a855f7">${allAlunos.filter(a => a.deficiencia).length}</div>
+    </div>
+    <div style="padding:14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg); text-align:center;">
+      <div style="font-size:.68rem; color:var(--text-muted); margin-bottom:4px;">Transporte Escolar</div>
+      <div style="font-size:1.8rem; font-weight:900; color:#f59e0b">${allAlunos.filter(a => a.transporte && a.transporte !== 'nenhum').length}</div>
+    </div>
+  `;
+
+  // ── ESCOLA CHECKLIST ──
+  const checklistEscola = document.getElementById('censo-checklist-escola');
+  const buildCheckItem = (label, ok) => `
+    <div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
+      <span style="font-size:.82rem; ${ok ? 'color:#10b981' : 'color:#ef4444'}">${ok ? '✅' : '❌'}</span>
+      <span style="font-size:.78rem; color:var(--text-primary); flex:1">${label}</span>
+      <span class="badge" style="font-size:.6rem; background:${ok ? 'rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)'}">${ok ? 'OK' : 'FALTANTE'}</span>
+    </div>
+  `;
+
+  checklistEscola.innerHTML = filteredEscolas.map(e => {
+    const infra = e.infraestrutura || {};
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:800; font-size:.82rem; color:var(--primary); margin-bottom:6px;">${esc(e.nomeAbreviado)}</div>
+        ${buildCheckItem('Código INEP', !!e.codigoINEP)}
+        ${buildCheckItem('Endereço completo', !!e.endereco && !!e.cidade && !!e.estado)}
+        ${buildCheckItem('Telefone', !!e.telefone)}
+        ${buildCheckItem('E-mail', !!e.email)}
+        ${buildCheckItem('Dependência Administrativa', !!e.dependenciaAdm)}
+        ${buildCheckItem('Abastecimento de Água', !!infra.agua)}
+        ${buildCheckItem('Esgoto Sanitário', !!infra.esgoto)}
+        ${buildCheckItem('Energia Elétrica', !!infra.energia)}
+        ${buildCheckItem('Acessibilidade', !!infra.acessibilidade)}
+        ${buildCheckItem('Banheiro PNE', !!infra.banheiroPNE)}
+      </div>
+    `;
+  }).join('');
+
+  // ── ALUNOS CHECKLIST ──
+  const checklistAlunos = document.getElementById('censo-checklist-alunos');
+  checklistAlunos.innerHTML = studentScores.map(s => {
+    const alunosSemDN = s.alunos.filter(a => !a.dataNascimento).length;
+    const alunosSemSexo = s.alunos.filter(a => !a.sexo).length;
+    const alunosSemCor = s.alunos.filter(a => !a.corRaca).length;
+    const alunosSemCert = s.alunos.filter(a => !a.certidaoNascimento).length;
+    const alunosSemCPF = s.alunos.filter(a => !a.cpf).length;
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:800; font-size:.82rem; color:var(--primary); margin-bottom:6px;">${esc(s.escola.nomeAbreviado)} (${s.total} alunos)</div>
+        ${buildCheckItem(`Data de Nascimento (${s.total - alunosSemDN}/${s.total})`, alunosSemDN === 0)}
+        ${buildCheckItem(`Sexo (${s.total - alunosSemSexo}/${s.total})`, alunosSemSexo === 0)}
+        ${buildCheckItem(`Cor/Raça (${s.total - alunosSemCor}/${s.total})`, alunosSemCor === 0)}
+        ${buildCheckItem(`CPF (${s.total - alunosSemCPF}/${s.total})`, alunosSemCPF === 0)}
+        ${buildCheckItem(`Certidão de Nascimento (${s.total - alunosSemCert}/${s.total})`, alunosSemCert === 0)}
+      </div>
+    `;
+  }).join('');
+
+  // ── INFRASTRUCTURE TABLE ──
+  const infraTbody = document.getElementById('censo-infra-tbody');
+  const boolBadge = v => v ? '<span class="badge badge-green" style="font-size:.65rem">✅</span>' : '<span class="badge badge-red" style="font-size:.65rem">❌</span>';
+  const textBadge = v => v ? `<span style="font-size:.7rem;color:var(--text-muted)">${esc(v)}</span>` : '<span class="badge badge-red" style="font-size:.65rem">❌</span>';
+
+  infraTbody.innerHTML = filteredEscolas.map(e => {
+    const i = e.infraestrutura || {};
+    return `<tr>
+      <td style="font-weight:700; font-size:.82rem">${esc(e.nomeAbreviado)}</td>
+      <td class="text-center">${textBadge(i.agua)}</td>
+      <td class="text-center">${textBadge(i.esgoto)}</td>
+      <td class="text-center">${boolBadge(i.internet)}</td>
+      <td class="text-center">${boolBadge(i.acessibilidade)}</td>
+      <td class="text-center">${boolBadge(i.biblioteca)}</td>
+      <td class="text-center">${boolBadge(i.laboratorioInformatica)}</td>
+      <td class="text-center">${boolBadge(i.banheiroPNE)}</td>
+      <td class="text-center">${boolBadge(i.salaRecursos)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── ALUNOS INCOMPLETOS ──
+  const alunosTbody = document.getElementById('censo-alunos-incompletos-tbody');
+  const incompletos = [];
+  allAlunos.forEach(a => {
+    const missing = [];
+    if (!a.dataNascimento) missing.push('Dt. Nasc.');
+    if (!a.sexo) missing.push('Sexo');
+    if (!a.corRaca) missing.push('Cor/Raça');
+    if (!a.certidaoNascimento) missing.push('Certidão');
+    if (!a.cpf) missing.push('CPF');
+    if (missing.length > 0) {
+      const turma = allTurmas.find(t => t.id === a.turmaId);
+      const escola = escolas.find(e => e.id === (a.escolaId || turma?.escolaId));
+      incompletos.push({ aluno: a, missing, turma, escola });
+    }
+  });
+
+  if (!incompletos.length) {
+    alunosTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#10b981; font-weight:700;"><i class="fa-solid fa-check-circle"></i> Todos os alunos possuem dados completos para o Censo!</td></tr>`;
+  } else {
+    alunosTbody.innerHTML = incompletos.map(item => `<tr>
+      <td style="font-weight:700">${esc(item.aluno.nome)}</td>
+      <td style="font-size:.78rem">${item.escola ? esc(item.escola.nomeAbreviado) : '—'}</td>
+      <td style="font-size:.78rem">${item.turma ? esc(item.turma.nome) : '—'}</td>
+      <td>${item.missing.map(m => `<span class="badge" style="font-size:.6rem; background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); margin:1px">${m}</span>`).join(' ')}</td>
+      <td class="text-center"><span class="badge badge-red" style="font-size:.65rem">⚠️ Incompleto</span></td>
+    </tr>`).join('');
+  }
+}
+
+function gerarRelatorioCenso(formato) {
+  if (formato === 'csv') {
+    const escolas = dbGetAll('escolas_rede').filter(e => e.ativa);
+    const alunos = dbGetAll('alunos').filter(a => a.ativo);
+    const turmas = dbGetAll('turmas').filter(t => t.ativo);
+    let csv = 'Nome,Matrícula,CPF,Data Nascimento,Sexo,Cor/Raça,Deficiência,Transporte,Turma,Escola\\n';
+    alunos.forEach(a => {
+      const turma = turmas.find(t => t.id === a.turmaId);
+      const escola = escolas.find(e => e.id === (a.escolaId || turma?.escolaId));
+      csv += `"${a.nome}","${a.matricula}","${a.cpf}","${a.dataNascimento||''}","${a.sexo||''}","${a.corRaca||''}","${a.deficiencia||''}","${a.transporte||''}","${turma?.nome||''}","${escola?.nomeAbreviado||''}"\\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `educacenso_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast('CSV exportado!', 'success');
+  } else {
+    toast('Relatório PDF em desenvolvimento.', 'info');
+  }
 }
