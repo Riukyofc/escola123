@@ -541,6 +541,7 @@
               <option value="4">4º Bimestre</option>
             </select>
           </div>
+          <div id="notas-plan-block-banner"></div>
           <div class="table-scroll">
             <table class="data-table">
               <thead>
@@ -811,6 +812,123 @@
       </div>
 
       <!-- ══════════════════════════════════
+           PROFESSOR: PLANEJAMENTO DE TURMA
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-prof-planejamento">
+        <div class="stats-row" id="plan-prof-stats"></div>
+
+        <!-- Formulário de novo/editar planejamento -->
+        <div class="panel-card" id="plan-form-card">
+          <div class="panel-card-header" style="cursor:pointer" onclick="togglePlanForm()">
+            <div class="panel-card-title"><i class="fa-solid fa-plus-circle"></i> <span id="plan-form-title-text">Novo Planejamento</span></div>
+            <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-down" id="plan-form-chevron"></i></button>
+          </div>
+          <div id="plan-form-body" style="max-height:0;overflow:hidden;transition:max-height 0.35s cubic-bezier(0.4,0,0.2,1)">
+            <div class="panel-card-body">
+              <input type="hidden" id="plan-edit-id" value="">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Turma *</label>
+                  <select class="form-control form-select" id="plan-turma"></select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Bimestre *</label>
+                  <select class="form-control form-select" id="plan-bimestre">
+                    <option value="1">1º Bimestre</option>
+                    <option value="2">2º Bimestre</option>
+                    <option value="3">3º Bimestre</option>
+                    <option value="4">4º Bimestre</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Título do Planejamento *</label>
+                <input type="text" class="form-control" id="plan-titulo" placeholder="Ex: Planejamento 1º Bimestre — Turma 5A">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Objetivos *</label>
+                <textarea class="form-control" id="plan-objetivos" rows="3" placeholder="Descreva os objetivos de aprendizagem do bimestre..."></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Conteúdos Programáticos *</label>
+                <textarea class="form-control" id="plan-conteudos" rows="4" placeholder="Liste os conteúdos que serão trabalhados por disciplina..."></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Metodologia</label>
+                  <textarea class="form-control" id="plan-metodologia" rows="3" placeholder="Estratégias de ensino que serão utilizadas..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Recursos Didáticos</label>
+                  <textarea class="form-control" id="plan-recursos" rows="3" placeholder="Materiais e recursos necessários..."></textarea>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Plano de Avaliação</label>
+                <textarea class="form-control" id="plan-avaliacao" rows="3" placeholder="Como os alunos serão avaliados (notas parciais, critérios)..."></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Cronograma</label>
+                  <textarea class="form-control" id="plan-cronograma" rows="3" placeholder="Distribuição temporal dos conteúdos..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Observações</label>
+                  <textarea class="form-control" id="plan-observacoes" rows="3" placeholder="Informações adicionais, alunos AEE, etc..."></textarea>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+                <button class="btn btn-ghost" onclick="resetPlanForm()"><i class="fa-solid fa-xmark"></i> Limpar</button>
+                <button class="btn btn-primary" onclick="salvarPlanRascunho()"><i class="fa-solid fa-floppy-disk"></i> Salvar Rascunho</button>
+                <button class="btn btn-success" onclick="salvarEEnviarPlan()"><i class="fa-solid fa-paper-plane"></i> Salvar e Enviar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de planejamentos -->
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-file-lines"></i> Meus Planejamentos</div>
+          </div>
+          <div class="panel-card-body no-pad" id="plan-prof-list"><div class="shimmer shimmer-card" style="margin:20px"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: PLANEJAMENTOS (APROVAÇÃO)
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-planejamentos">
+        <div class="stats-row" id="plan-dir-stats"></div>
+
+        <!-- Pendentes de aprovação -->
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-clock"></i> Pendentes de Aprovação</div>
+            <span class="badge badge-red" id="plan-dir-pendentes-badge" style="display:none">0</span>
+          </div>
+          <div class="panel-card-body" id="plan-dir-pendentes"><div class="shimmer shimmer-card"></div></div>
+        </div>
+
+        <!-- Todos os planejamentos -->
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-file-circle-check"></i> Todos os Planejamentos</div>
+            <div style="display:flex;gap:8px">
+              <select class="form-control form-select" id="plan-dir-filtro-status" onchange="loadDirPlanejamentos()" style="width:auto;padding:6px 30px 6px 10px;font-size:.82rem">
+                <option value="">Todos</option>
+                <option value="enviado">Pendentes</option>
+                <option value="aprovado">Aprovados</option>
+                <option value="revisao_solicitada">Em Revisão</option>
+                <option value="rascunho">Rascunho</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-card-body" id="plan-dir-todos"><div class="shimmer shimmer-card"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
            DIRETOR: DASHBOARD
       ══════════════════════════════════ -->
       <div class="dash-page" id="page-dir-inicio">
@@ -849,6 +967,14 @@
             </div>
             <div class="panel-card-body" id="dir-avisos-list"></div>
           </div>
+        </div>
+
+        <!-- Alertas de Carga Horária (Fase 3) -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-hourglass-half"></i> Carga Horária — Alertas</div>
+          </div>
+          <div class="panel-card-body" id="dir-ch-alertas"><div class="shimmer shimmer-card"></div></div>
         </div>
 
         <!-- Professor Status + Calendar -->
@@ -1158,6 +1284,9 @@
           </div>
         </div>
 
+        <!-- Stats expandidas (Fase 3) -->
+        <div class="stats-row" id="ch-stats-extra"></div>
+
         <!-- Filter -->
         <div class="panel-card" style="margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0;">
           <div class="diario-filter-bar">
@@ -1255,6 +1384,67 @@
 
         <!-- Resumo de disciplinas da grade -->
         <div id="grade-resumo-discs" style="display:none"></div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           DIRETOR: AUDIT DE NOTAS (Fase 4)
+      ══════════════════════════════════ -->
+      <div class="dash-page" id="page-dir-audit-notas">
+        <!-- Hero -->
+        <div class="diario-hero-banner" style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#3730a3 100%)">
+          <div class="diario-hero-content">
+            <div class="diario-hero-icon" style="background:rgba(255,255,255,0.1)"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+              <div class="diario-hero-title">Audit Log de Notas</div>
+              <div class="diario-hero-sub">Registro imutável de todas as criações e alterações de notas</div>
+            </div>
+          </div>
+          <div class="diario-hero-stats">
+            <div class="diario-stat-chip"><i class="fa-solid fa-file-lines"></i> <span id="audit-stat-total">0</span> registros</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-plus"></i> <span id="audit-stat-criacao">0</span> criações</div>
+            <div class="diario-stat-chip"><i class="fa-solid fa-pen"></i> <span id="audit-stat-alteracao">0</span> alterações</div>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="panel-card" style="margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0">
+          <div class="diario-filter-bar">
+            <div class="diario-filter-left">
+              <select class="form-control form-select" id="audit-filtro-turma" onchange="loadAuditNotas()" style="min-width:170px">
+                <option value="">Todas as turmas</option>
+              </select>
+              <select class="form-control form-select" id="audit-filtro-prof" onchange="loadAuditNotas()" style="min-width:170px">
+                <option value="">Todos os professores</option>
+              </select>
+              <select class="form-control form-select" id="audit-filtro-bim" onchange="loadAuditNotas()" style="min-width:120px">
+                <option value="">Todos bim.</option>
+                <option value="1">1º Bim</option>
+                <option value="2">2º Bim</option>
+                <option value="3">3º Bim</option>
+                <option value="4">4º Bim</option>
+              </select>
+              <select class="form-control form-select" id="audit-filtro-tipo" onchange="loadAuditNotas()" style="min-width:120px">
+                <option value="">Todos</option>
+                <option value="criacao">Criações</option>
+                <option value="alteracao">Alterações</option>
+              </select>
+            </div>
+            <div class="diario-filter-right">
+              <input type="text" class="form-control" id="audit-busca-aluno" placeholder="Buscar aluno..." oninput="loadAuditNotas()" style="width:180px;font-size:.82rem">
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="panel-card" style="border-top-left-radius:0;border-top-right-radius:0">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-timeline"></i> Histórico de Alterações</div>
+            <span class="badge badge-outline" id="audit-count-badge">0</span>
+          </div>
+          <div class="panel-card-body" id="audit-timeline-body">
+            <div class="shimmer shimmer-card"></div>
+          </div>
+        </div>
       </div>
 
       <!-- ══════════════════════════════════
@@ -1578,6 +1768,15 @@
             <div class="panel-card-title"><i class="fa-solid fa-bell" style="color:var(--danger)"></i> Alertas Automáticos</div>
           </div>
           <div class="panel-card-body" id="sec-alertas-body"><div class="shimmer shimmer-card"></div></div>
+        </div>
+
+        <!-- Escolas da Rede — Resumo rápido -->
+        <div class="panel-card" style="margin-top:20px">
+          <div class="panel-card-header">
+            <div class="panel-card-title"><i class="fa-solid fa-school"></i> Escolas da Rede</div>
+            <button class="btn btn-sm btn-ghost" onclick="showPage('page-sec-escolas')"><i class="fa-solid fa-arrow-right"></i> Ver todas</button>
+          </div>
+          <div class="panel-card-body" id="sec-escolas-resumo"><div class="shimmer shimmer-card"></div></div>
         </div>
       </div>
 

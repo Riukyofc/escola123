@@ -116,15 +116,35 @@ const SEED = {
   ],
 
   notas: [
-    { id: 'n001', alunoId: 'a01', disciplinaId: 'd01', b1: 8.5, b2: 7.0, b3: null, b4: null },
-    { id: 'n002', alunoId: 'a01', disciplinaId: 'd02', b1: 6.0, b2: 5.5, b3: null, b4: null },
-    { id: 'n003', alunoId: 'a02', disciplinaId: 'd01', b1: 9.0, b2: 8.5, b3: null, b4: null },
-    { id: 'n004', alunoId: 'a02', disciplinaId: 'd02', b1: 4.0, b2: 5.0, b3: null, b4: null },
-    { id: 'n005', alunoId: 'a03', disciplinaId: 'd01', b1: 7.5, b2: 8.0, b3: null, b4: null },
-    { id: 'n006', alunoId: 'a03', disciplinaId: 'd02', b1: 6.5, b2: 7.0, b3: null, b4: null },
-    { id: 'n007', alunoId: 'a04', disciplinaId: 'd02', b1: 5.0, b2: 6.5, b3: null, b4: null },
-    { id: 'n008', alunoId: 'a05', disciplinaId: 'd02', b1: 8.0, b2: 7.5, b3: null, b4: null },
-    { id: 'n009', alunoId: 'a06', disciplinaId: 'd02', b1: 3.5, b2: 4.0, b3: null, b4: null },
+    // NOVA ESTRUTURA: 1 doc por aluno × disciplina × bimestre, com array de notas parciais (0-10 cada)
+    // notaBimestral = soma / qtd (média aritmética). Mínimo 2 notas.
+    { id: 'n001', alunoId: 'a01', disciplinaId: 'd01', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:9,rotulo:'Prova Escrita'},{valor:8,rotulo:'Trabalho'},{valor:7,rotulo:'Participação'},{valor:9,rotulo:'Simulado'}],
+      somaNotas: 33, qtdNotas: 4, notaBimestral: 8.25, recuperacao: null, notaFinal: 8.25, professorId: 'p01', ativo: true },
+    { id: 'n002', alunoId: 'a01', disciplinaId: 'd02', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:6,rotulo:'Prova Escrita'},{valor:5,rotulo:'Trabalho'},{valor:7,rotulo:'Participação'},{valor:6,rotulo:'Simulado'}],
+      somaNotas: 24, qtdNotas: 4, notaBimestral: 6.0, recuperacao: null, notaFinal: 6.0, professorId: 'p02', ativo: true },
+    { id: 'n003', alunoId: 'a02', disciplinaId: 'd01', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:10,rotulo:'Prova Escrita'},{valor:9,rotulo:'Trabalho'},{valor:8,rotulo:'Participação'},{valor:9,rotulo:'Simulado'}],
+      somaNotas: 36, qtdNotas: 4, notaBimestral: 9.0, recuperacao: null, notaFinal: 9.0, professorId: 'p01', ativo: true },
+    { id: 'n004', alunoId: 'a02', disciplinaId: 'd02', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:4,rotulo:'Prova Escrita'},{valor:3,rotulo:'Trabalho'},{valor:5,rotulo:'Participação'},{valor:4,rotulo:'Simulado'}],
+      somaNotas: 16, qtdNotas: 4, notaBimestral: 4.0, recuperacao: 6, notaFinal: 4.75, professorId: 'p02', ativo: true },
+    { id: 'n005', alunoId: 'a03', disciplinaId: 'd01', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:8,rotulo:'Prova Escrita'},{valor:7,rotulo:'Trabalho'},{valor:8,rotulo:'Participação'},{valor:7,rotulo:'Simulado'}],
+      somaNotas: 30, qtdNotas: 4, notaBimestral: 7.5, recuperacao: null, notaFinal: 7.5, professorId: 'p01', ativo: true },
+    { id: 'n006', alunoId: 'a03', disciplinaId: 'd02', turmaId: 't01', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:7,rotulo:'Prova Escrita'},{valor:6,rotulo:'Trabalho'},{valor:7,rotulo:'Participação'},{valor:6,rotulo:'Simulado'}],
+      somaNotas: 26, qtdNotas: 4, notaBimestral: 6.5, recuperacao: null, notaFinal: 6.5, professorId: 'p02', ativo: true },
+    { id: 'n007', alunoId: 'a04', disciplinaId: 'd02', turmaId: 't02', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:5,rotulo:'Prova Escrita'},{valor:6,rotulo:'Trabalho'},{valor:4,rotulo:'Participação'},{valor:5,rotulo:'Simulado'}],
+      somaNotas: 20, qtdNotas: 4, notaBimestral: 5.0, recuperacao: null, notaFinal: 5.0, professorId: 'p02', ativo: true },
+    { id: 'n008', alunoId: 'a05', disciplinaId: 'd02', turmaId: 't02', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:8,rotulo:'Prova Escrita'},{valor:7,rotulo:'Trabalho'},{valor:9,rotulo:'Participação'},{valor:7,rotulo:'Simulado'}],
+      somaNotas: 31, qtdNotas: 4, notaBimestral: 7.75, recuperacao: null, notaFinal: 7.75, professorId: 'p02', ativo: true },
+    { id: 'n009', alunoId: 'a06', disciplinaId: 'd02', turmaId: 't03', escolaId: 'esc01', bimestre: 1,
+      notas: [{valor:3,rotulo:'Prova Escrita'},{valor:4,rotulo:'Trabalho'},{valor:3,rotulo:'Participação'},{valor:4,rotulo:'Simulado'}],
+      somaNotas: 14, qtdNotas: 4, notaBimestral: 3.5, recuperacao: 5, notaFinal: 4.0, professorId: 'p02', ativo: true },
   ],
 
   frequencia: [],
@@ -356,6 +376,7 @@ const SEED = {
         biblioteca: true, laboratorioInformatica: true, laboratorioCiencias: false,
         cozinha: true, refeitorio: true, banheiroPNE: true, salaRecursos: false },
       sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      qtdNotasBimestre: 4, rotulosPadrao: ['Prova Escrita','Trabalho','Participação','Simulado'], habilitarRecuperacao: true,
       ativa: true, criadoEm: '2026-01-15' },
     { id: 'esc02', slug: 'uemanoel', nome: 'U.E. Manoel Beckman', nomeAbreviado: 'U.E. Manoel Beckman',
       codigoINEP: '21045798', endereco: 'Av. Brasil, 450 - Bairro Novo', cidade: 'Viana', estado: 'MA',
@@ -369,6 +390,7 @@ const SEED = {
         biblioteca: false, laboratorioInformatica: true, laboratorioCiencias: false,
         cozinha: true, refeitorio: false, banheiroPNE: false, salaRecursos: false },
       sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      qtdNotasBimestre: 4, rotulosPadrao: ['Prova Escrita','Trabalho','Participação','Simulado'], habilitarRecuperacao: true,
       ativa: true, criadoEm: '2026-02-01' },
     { id: 'esc03', slug: 'uesaojoao', nome: 'U.E. São João Batista', nomeAbreviado: 'U.E. São João',
       codigoINEP: '21045801', endereco: 'Estrada do Interior, Km 12', cidade: 'Viana', estado: 'MA',
@@ -382,6 +404,7 @@ const SEED = {
         biblioteca: false, laboratorioInformatica: false, laboratorioCiencias: false,
         cozinha: true, refeitorio: false, banheiroPNE: false, salaRecursos: false },
       sistemaFechado: false, dataFechamento: null, notaMinima: 5.0, bimestreAtual: 1,
+      qtdNotasBimestre: 4, rotulosPadrao: ['Prova Escrita','Trabalho','Participação','Simulado'], habilitarRecuperacao: true,
       ativa: true, criadoEm: '2026-02-10' },
   ],
 
@@ -528,10 +551,55 @@ const SEED = {
     { id: 'inep_sit_5', tabela: 'situacao_aluno', codigo: 5, descricao: 'Deixou de Frequentar', chave: 'desistente' },
     { id: 'inep_sit_6', tabela: 'situacao_aluno', codigo: 6, descricao: 'Falecido', chave: 'falecido' },
   ],
+
+  // ── PLANEJAMENTOS DE TURMA ──────────────────────────────────
+  // Workflow: rascunho → enviado → aprovado / revisao_solicitada
+  planejamentos: [
+    { id: 'plan01', turmaId: 't01', professorId: 'p01', escolaId: 'esc01', bimestre: 1,
+      titulo: 'Planejamento 1º Bimestre — Turma 5A',
+      objetivos: 'Desenvolver habilidades de leitura, escrita e resolução de problemas matemáticos básicos.',
+      conteudos: 'Português: Gêneros textuais (narrativa e poesia)\nMatemática: Operações fundamentais, frações',
+      metodologia: 'Aulas expositivas dialogadas, trabalhos em grupo, atividades lúdicas.',
+      recursos: 'Livro didático, material xerocado, projetor, jogos educativos.',
+      avaliacao: 'Prova escrita (N1), Trabalho em grupo (N2), Participação em aula (N3), Simulado (N4).',
+      cronograma: 'Fevereiro: Diagnóstico e nivelamento\nMarço: Conteúdos programáticos\nAbril: Revisão e avaliações',
+      observacoes: 'Atenção especial aos alunos com TDAH da turma.',
+      status: 'aprovado', enviadoEm: '2026-02-10T10:00:00Z', aprovadoEm: '2026-02-12T14:30:00Z',
+      aprovadoPor: 'Diretor(a)', feedbackDiretor: 'Planejamento completo e bem estruturado. Aprovado!',
+      criadoEm: '2026-02-08T09:00:00Z', atualizadoEm: '2026-02-12T14:30:00Z', ativo: true },
+    { id: 'plan02', turmaId: 't02', professorId: 'p02', escolaId: 'esc01', bimestre: 1,
+      titulo: 'Planejamento 1º Bimestre — Turma 4B',
+      objetivos: 'Introduzir conceitos de história e geografia local.',
+      conteudos: 'História: Formação do município de Viana\nGeografia: Relevo e hidrografia',
+      metodologia: 'Pesquisa de campo, entrevistas com moradores, aulas expositivas.',
+      recursos: 'Material didático, acesso à internet, câmera fotográfica.',
+      avaliacao: 'Trabalho de pesquisa (N1), Apresentação oral (N2), Prova (N3), Relatório (N4).',
+      cronograma: 'Fevereiro-Abril: Sequência didática progressiva.',
+      observacoes: '',
+      status: 'enviado', enviadoEm: '2026-02-15T08:00:00Z', aprovadoEm: null,
+      aprovadoPor: null, feedbackDiretor: null,
+      criadoEm: '2026-02-14T10:00:00Z', atualizadoEm: '2026-02-15T08:00:00Z', ativo: true },
+  ],
+
+  // ── AUDIT LOGS DE NOTAS (Fase 4) ───────────────────────
+  audit_notas: [
+    { id: 'audit01', tipo: 'criacao', notaId: 'n_b1_001', alunoId: 'a01', disciplinaId: 'd01', turmaId: 't01',
+      bimestre: 1, professorId: 'p01', professorNome: 'Maria Silva',
+      escolaId: 'esc01', timestamp: '2026-02-20T09:30:00Z',
+      anterior: null,
+      novo: { notas: [{valor:9,rotulo:'Prova Escrita'},{valor:8,rotulo:'Trabalho'},{valor:6,rotulo:'Participação'},{valor:10,rotulo:'Simulado'}], notaBimestral: 8.25, recuperacao: null, notaFinal: 8.25 },
+      descricao: 'Notas criadas: N1=9, N2=8, N3=6, N4=10 → Média 8.25' },
+    { id: 'audit02', tipo: 'alteracao', notaId: 'n_b1_001', alunoId: 'a01', disciplinaId: 'd01', turmaId: 't01',
+      bimestre: 1, professorId: 'p01', professorNome: 'Maria Silva',
+      escolaId: 'esc01', timestamp: '2026-02-22T14:15:00Z',
+      anterior: { notas: [{valor:9,rotulo:'Prova Escrita'},{valor:8,rotulo:'Trabalho'},{valor:6,rotulo:'Participação'},{valor:10,rotulo:'Simulado'}], notaBimestral: 8.25, recuperacao: null, notaFinal: 8.25 },
+      novo: { notas: [{valor:9,rotulo:'Prova Escrita'},{valor:8,rotulo:'Trabalho'},{valor:7,rotulo:'Participação'},{valor:10,rotulo:'Simulado'}], notaBimestral: 8.5, recuperacao: null, notaFinal: 8.5 },
+      descricao: 'N3 alterada: 6 → 7. Média: 8.25 → 8.5' },
+  ],
 };
 
 // Coleções que são arrays (listas de documentos)
-const LIST_COLLECTIONS = ['turmas','professores','disciplinas','alunos','notas','frequencia','diario','atividades','aee','avisos','horarios_aula','grade_horaria','eventos_calendario','equipe','galeria','depoimentos','repasses_financeiros','estoque_merenda','circulares','ideb_historico','consumo_merenda','escolas_rede','modalidades_ensino','niveis_ensino','registro_carga_horaria','dicionario_inep'];
+const LIST_COLLECTIONS = ['turmas','professores','disciplinas','alunos','notas','frequencia','diario','atividades','aee','avisos','horarios_aula','grade_horaria','eventos_calendario','equipe','galeria','depoimentos','repasses_financeiros','estoque_merenda','circulares','ideb_historico','consumo_merenda','escolas_rede','modalidades_ensino','niveis_ensino','registro_carga_horaria','dicionario_inep','planejamentos','audit_notas'];
 // Coleções que são documentos únicos (singletons) — escola/config migrados para escolas_rede
 const SINGLETON_COLLECTIONS = [];
 
@@ -573,9 +641,11 @@ function dbGet(key) {
   if (key === 'escola') return getEscolaInfo();
   if (key === 'config') return getConfig();
   if (SINGLETON_COLLECTIONS.includes(key)) {
-    return CACHE[key] || SEED[key] || null;
+    return CACHE[key] !== undefined && CACHE[key] !== null ? CACHE[key] : (SEED[key] || null);
   }
-  return CACHE[key] || SEED[key] || [];
+  // Para listas: se o CACHE existir E tiver itens, usa ele; senão fallback p/ SEED
+  if (CACHE[key] && CACHE[key].length > 0) return CACHE[key];
+  return SEED[key] || [];
 }
 
 function dbSet(key, value) {
@@ -587,7 +657,9 @@ function dbSet(key, value) {
 }
 
 function dbGetAll(key) {
-  return CACHE[key] || SEED[key] || [];
+  // Se cache tem dados, usa; senão fallback p/ SEED
+  if (CACHE[key] && CACHE[key].length > 0) return CACHE[key];
+  return SEED[key] || [];
 }
 
 function dbFind(key, id) {
@@ -758,14 +830,109 @@ async function getUserData(uid) {
   return { uid, ...snap.data() };
 }
 
-// ─── NOTA HELPERS ─────────────────────────────────────────────
-function getNotaAnual(b1, b2, b3, b4) {
-  const notas = [b1, b2, b3, b4];
-  // Exige TODOS os 4 bimestres preenchidos para calcular média anual
-  if (notas.some(n => n === null || n === undefined)) return null;
-  const vals = notas.map(n => parseFloat(n));
-  if (vals.some(v => isNaN(v))) return null;
-  return +(vals.reduce((a,b) => a+b, 0) / 4).toFixed(1);
+// ─── NOTA HELPERS (NOVO SISTEMA BIMESTRAL FRACIONADO) ──────────
+
+// Calcula a média aritmética de um array de notas parciais
+function calcularMediaBimestral(notasArray) {
+  if (!notasArray || !Array.isArray(notasArray)) return null;
+  const validas = notasArray.filter(n => n && n.valor !== null && n.valor !== undefined && !isNaN(n.valor));
+  if (validas.length < 2) return null; // Mínimo 2 notas
+  const soma = validas.reduce((acc, n) => acc + parseFloat(n.valor), 0);
+  return +(soma / validas.length).toFixed(2);
+}
+
+// Aplica recuperação paralela: substitui a menor nota se rec > menor
+function aplicarRecuperacao(notasArray, notaRec) {
+  if (!notasArray || !Array.isArray(notasArray) || notasArray.length < 2) return { notas: notasArray, media: null };
+  if (notaRec === null || notaRec === undefined || isNaN(notaRec)) {
+    return { notas: notasArray, media: calcularMediaBimestral(notasArray) };
+  }
+  const validas = notasArray.filter(n => n && n.valor !== null && n.valor !== undefined);
+  if (validas.length < 2) return { notas: notasArray, media: null };
+  // Encontrar menor valor
+  let menorIdx = 0;
+  let menorVal = parseFloat(validas[0].valor);
+  validas.forEach((n, i) => {
+    if (parseFloat(n.valor) < menorVal) { menorVal = parseFloat(n.valor); menorIdx = i; }
+  });
+  // Substituir apenas se rec > menor
+  const copia = validas.map((n, i) => {
+    if (i === menorIdx && parseFloat(notaRec) > menorVal) {
+      return { ...n, valor: parseFloat(notaRec) };
+    }
+    return n;
+  });
+  return { notas: copia, media: calcularMediaBimestral(copia) };
+}
+
+// Obtém a nota final de um bimestre (com ou sem recuperação)
+function getNotaBimestral(notaDoc) {
+  if (!notaDoc) return null;
+  // Formato novo: tem array notas[]
+  if (notaDoc.notas && Array.isArray(notaDoc.notas)) {
+    if (notaDoc.recuperacao !== null && notaDoc.recuperacao !== undefined) {
+      const resultado = aplicarRecuperacao(notaDoc.notas, notaDoc.recuperacao);
+      return resultado.media;
+    }
+    return calcularMediaBimestral(notaDoc.notas);
+  }
+  // Formato legado: campo notaFinal ou notaBimestral direto
+  if (notaDoc.notaFinal !== null && notaDoc.notaFinal !== undefined) return notaDoc.notaFinal;
+  if (notaDoc.notaBimestral !== null && notaDoc.notaBimestral !== undefined) return notaDoc.notaBimestral;
+  return null;
+}
+
+// Migra nota do formato antigo (b1,b2,b3,b4) para o novo formato
+function migrarNotaAntiga(docAntigo) {
+  if (!docAntigo) return [];
+  const resultado = [];
+  const cfg = getConfig();
+  const rotulos = cfg.rotulosPadrao || ['Prova Escrita','Trabalho','Participação','Simulado'];
+  for (let bim = 1; bim <= 4; bim++) {
+    const val = docAntigo[`b${bim}`];
+    if (val !== null && val !== undefined) {
+      resultado.push({
+        id: generateId('n'),
+        alunoId: docAntigo.alunoId,
+        disciplinaId: docAntigo.disciplinaId,
+        turmaId: docAntigo.turmaId || '',
+        escolaId: docAntigo.escolaId || '',
+        bimestre: bim,
+        notas: [{ valor: parseFloat(val), rotulo: 'Nota migrada' }],
+        somaNotas: parseFloat(val),
+        qtdNotas: 1,
+        notaBimestral: parseFloat(val),
+        recuperacao: null,
+        notaFinal: parseFloat(val),
+        professorId: docAntigo.professorId || '',
+        ativo: true
+      });
+    }
+  }
+  return resultado;
+}
+
+// Calcula nota anual a partir dos docs de notas por bimestre
+// Recebe array de docs de notas (novo formato) ou 4 valores diretos (legacy)
+function getNotaAnual(b1OrDocs, b2, b3, b4) {
+  // Se recebeu 4 valores diretos (modo legado — retrocompatibilidade)
+  if (typeof b1OrDocs === 'number' || b1OrDocs === null) {
+    const notas = [b1OrDocs, b2, b3, b4];
+    if (notas.some(n => n === null || n === undefined)) return null;
+    const vals = notas.map(n => parseFloat(n));
+    if (vals.some(v => isNaN(v))) return null;
+    return +(vals.reduce((a,b) => a+b, 0) / 4).toFixed(2);
+  }
+  // Modo novo: recebeu array de docs de notas
+  if (Array.isArray(b1OrDocs)) {
+    const bimestres = [1,2,3,4].map(bim => {
+      const doc = b1OrDocs.find(n => n.bimestre === bim);
+      return doc ? getNotaBimestral(doc) : null;
+    });
+    if (bimestres.some(b => b === null)) return null;
+    return +(bimestres.reduce((a,b) => a+b, 0) / 4).toFixed(2);
+  }
+  return null;
 }
 
 function isAprovado(notaAnual, notaMinima = 5.0) {
@@ -777,18 +944,71 @@ function getNotasAluno(alunoId) {
   return dbGetAll('notas').filter(n => n.alunoId === alunoId);
 }
 
-function salvarNota(alunoId, disciplinaId, bimestre, valor) {
-  const notas = dbGetAll('notas');
-  let nota = notas.find(n => n.alunoId === alunoId && n.disciplinaId === disciplinaId);
-  const bKey = `b${bimestre}`;
-  const valNum = valor === '' ? null : parseFloat(valor);
-  if (nota) {
-    dbUpdate('notas', nota.id, { [bKey]: valNum });
-  } else {
-    const newNota = { id: generateId('n'), alunoId, disciplinaId, b1: null, b2: null, b3: null, b4: null };
-    newNota[bKey] = valNum;
-    dbAdd('notas', newNota);
+// Obtém todas as notas de um aluno para uma disciplina (todos bimestres)
+function getNotasAlunoDisciplina(alunoId, disciplinaId) {
+  return dbGetAll('notas').filter(n => n.alunoId === alunoId && n.disciplinaId === disciplinaId);
+}
+
+// Obtém a nota de um bimestre específico
+function getNotaBimestreDoc(alunoId, disciplinaId, bimestre) {
+  return dbGetAll('notas').find(n => n.alunoId === alunoId && n.disciplinaId === disciplinaId && n.bimestre === bimestre) || null;
+}
+
+// Salva notas parciais de um bimestre (NOVA ESTRUTURA)
+function salvarNotasBimestre(alunoId, disciplinaId, turmaId, bimestre, notasArray, recuperacao) {
+  const cfg = getConfig();
+  const validas = notasArray.filter(n => n && n.valor !== null && n.valor !== undefined && !isNaN(n.valor));
+  const soma = validas.reduce((acc, n) => acc + parseFloat(n.valor), 0);
+  const qtd = validas.length;
+  const media = qtd >= 2 ? +(soma / qtd).toFixed(2) : null;
+  
+  // Calcular notaFinal com recuperação
+  let notaFinal = media;
+  if (recuperacao !== null && recuperacao !== undefined && !isNaN(recuperacao) && qtd >= 2) {
+    const resultado = aplicarRecuperacao(notasArray, recuperacao);
+    notaFinal = resultado.media;
   }
+
+  const existing = getNotaBimestreDoc(alunoId, disciplinaId, bimestre);
+  const doc = {
+    alunoId, disciplinaId, turmaId,
+    escolaId: typeof ESCOLA_ATIVA !== 'undefined' ? ESCOLA_ATIVA : '',
+    bimestre: parseInt(bimestre),
+    notas: notasArray,
+    somaNotas: +soma.toFixed(2),
+    qtdNotas: qtd,
+    notaBimestral: media,
+    recuperacao: (recuperacao !== null && recuperacao !== undefined && recuperacao !== '') ? parseFloat(recuperacao) : null,
+    notaFinal: notaFinal,
+    professorId: (typeof SESSION !== 'undefined' && SESSION.user) ? SESSION.user.id : '',
+    ativo: true
+  };
+
+  if (existing) {
+    // Audit log — registrar antes de atualizar
+    registrarAuditNota('alteracao', existing.id, alunoId, disciplinaId, turmaId, bimestre, existing, doc);
+    dbUpdate('notas', existing.id, doc);
+  } else {
+    doc.id = generateId('n');
+    dbAdd('notas', doc);
+    // Audit log — criação
+    registrarAuditNota('criacao', doc.id, alunoId, disciplinaId, turmaId, bimestre, null, doc);
+  }
+  return doc;
+}
+
+// Legacy compat: salvarNota antigo (redireciona para novo)
+function salvarNota(alunoId, disciplinaId, bimestre, valor) {
+  const cfg = getConfig();
+  const rotulos = cfg.rotulosPadrao || ['Prova Escrita','Trabalho','Participação','Simulado'];
+  const existing = getNotaBimestreDoc(alunoId, disciplinaId, bimestre);
+  if (existing && existing.notas && Array.isArray(existing.notas)) {
+    // Atualizar nota existente — manter as parciais, só atualizar a primeira
+    return;
+  }
+  // Criar nota simples no formato novo
+  const notasArray = [{ valor: valor === '' ? null : parseFloat(valor), rotulo: rotulos[0] || 'Nota' }];
+  salvarNotasBimestre(alunoId, disciplinaId, '', bimestre, notasArray, null);
 }
 
 // ─── DATE HELPERS ─────────────────────────────────────────────
@@ -897,4 +1117,177 @@ async function seedFirestore() {
   }
 
   return true;
+}
+
+// =============================================================
+// PLANEJAMENTO DE TURMA — Helpers
+// =============================================================
+// Workflow: rascunho → enviado → aprovado / revisao_solicitada
+
+function criarPlanejamento(data) {
+  const plan = {
+    id: generateId('plan'),
+    turmaId: data.turmaId,
+    professorId: data.professorId || SESSION?.user?.id,
+    escolaId: data.escolaId || CACHE?.escola?.id,
+    bimestre: parseInt(data.bimestre) || 1,
+    titulo: data.titulo || '',
+    objetivos: data.objetivos || '',
+    conteudos: data.conteudos || '',
+    metodologia: data.metodologia || '',
+    recursos: data.recursos || '',
+    avaliacao: data.avaliacao || '',
+    cronograma: data.cronograma || '',
+    observacoes: data.observacoes || '',
+    status: 'rascunho',
+    enviadoEm: null,
+    aprovadoEm: null,
+    aprovadoPor: null,
+    feedbackDiretor: null,
+    criadoEm: new Date().toISOString(),
+    atualizadoEm: new Date().toISOString(),
+    ativo: true
+  };
+  dbAdd('planejamentos', plan);
+  return plan;
+}
+
+function enviarPlanejamento(planId) {
+  const plan = dbFind('planejamentos', planId);
+  if (!plan) return null;
+  if (!plan.titulo || !plan.objetivos || !plan.conteudos) {
+    throw new Error('Preencha título, objetivos e conteúdos antes de enviar.');
+  }
+  dbUpdate('planejamentos', planId, {
+    status: 'enviado',
+    enviadoEm: new Date().toISOString(),
+    atualizadoEm: new Date().toISOString(),
+    feedbackDiretor: null
+  });
+  return dbFind('planejamentos', planId);
+}
+
+function aprovarPlanejamento(planId, feedback) {
+  dbUpdate('planejamentos', planId, {
+    status: 'aprovado',
+    aprovadoEm: new Date().toISOString(),
+    aprovadoPor: SESSION?.name || 'Diretor(a)',
+    feedbackDiretor: feedback || 'Aprovado.',
+    atualizadoEm: new Date().toISOString()
+  });
+  return dbFind('planejamentos', planId);
+}
+
+function solicitarRevisao(planId, feedback) {
+  if (!feedback) throw new Error('Informe o motivo da revisão.');
+  dbUpdate('planejamentos', planId, {
+    status: 'revisao_solicitada',
+    feedbackDiretor: feedback,
+    aprovadoEm: null,
+    aprovadoPor: null,
+    atualizadoEm: new Date().toISOString()
+  });
+  return dbFind('planejamentos', planId);
+}
+
+function getPlanejamentosProf(professorId) {
+  return dbGetAll('planejamentos').filter(p => p.professorId === professorId && p.ativo);
+}
+
+function getPlanejamentosPendentes() {
+  return dbGetAll('planejamentos').filter(p => p.status === 'enviado' && p.ativo);
+}
+
+function getPlanejamentoTurma(turmaId, bimestre) {
+  return dbGetAll('planejamentos').find(p =>
+    p.turmaId === turmaId && p.bimestre === parseInt(bimestre) && p.ativo
+  );
+}
+
+// Verifica se o planejamento de uma turma/bimestre está aprovado
+// Usado para bloqueio de notas e diário
+function isPlanejamentoAprovado(turmaId, bimestre) {
+  const plan = getPlanejamentoTurma(turmaId, bimestre);
+  return plan?.status === 'aprovado';
+}
+
+// =============================================================
+// AUDIT LOG DE NOTAS — Helpers (Fase 4)
+// =============================================================
+// Log imutável (append-only) de todas as alterações de notas
+
+function registrarAuditNota(tipo, notaId, alunoId, disciplinaId, turmaId, bimestre, anterior, novo) {
+  // Gerar descrição automática
+  let descricao = '';
+  if (tipo === 'criacao') {
+    const notas = (novo.notas || []).filter(n => n.valor !== null && n.valor !== undefined);
+    const vals = notas.map((n, i) => `N${i+1}=${n.valor}`).join(', ');
+    descricao = `Notas criadas: ${vals} → Média ${novo.notaBimestral ?? '—'}`;
+    if (novo.recuperacao !== null && novo.recuperacao !== undefined) {
+      descricao += ` | Rec: ${novo.recuperacao} → Final: ${novo.notaFinal}`;
+    }
+  } else if (tipo === 'alteracao' && anterior) {
+    const changes = [];
+    const oldNotas = anterior.notas || [];
+    const newNotas = novo.notas || [];
+    for (let i = 0; i < Math.max(oldNotas.length, newNotas.length); i++) {
+      const ov = oldNotas[i]?.valor;
+      const nv = newNotas[i]?.valor;
+      if (ov !== nv) {
+        changes.push(`N${i+1}: ${ov ?? '—'} → ${nv ?? '—'}`);
+      }
+    }
+    if (anterior.recuperacao !== novo.recuperacao) {
+      changes.push(`Rec: ${anterior.recuperacao ?? '—'} → ${novo.recuperacao ?? '—'}`);
+    }
+    if (changes.length) {
+      descricao = changes.join(', ');
+    }
+    if (anterior.notaBimestral !== novo.notaBimestral) {
+      descricao += ` | Média: ${anterior.notaBimestral ?? '—'} → ${novo.notaBimestral ?? '—'}`;
+    }
+    if (!descricao) descricao = 'Dados atualizados (sem mudança de valores)';
+  }
+
+  const auditDoc = {
+    id: generateId('audit'),
+    tipo,
+    notaId,
+    alunoId,
+    disciplinaId,
+    turmaId,
+    bimestre: parseInt(bimestre),
+    professorId: (typeof SESSION !== 'undefined' && SESSION.user) ? SESSION.user.id : '',
+    professorNome: (typeof SESSION !== 'undefined') ? SESSION.name : '',
+    escolaId: (typeof ESCOLA_ATIVA !== 'undefined') ? ESCOLA_ATIVA : '',
+    timestamp: new Date().toISOString(),
+    anterior: anterior ? {
+      notas: anterior.notas,
+      notaBimestral: anterior.notaBimestral,
+      recuperacao: anterior.recuperacao,
+      notaFinal: anterior.notaFinal
+    } : null,
+    novo: {
+      notas: novo.notas,
+      notaBimestral: novo.notaBimestral,
+      recuperacao: novo.recuperacao,
+      notaFinal: novo.notaFinal
+    },
+    descricao
+  };
+
+  dbAdd('audit_notas', auditDoc);
+  return auditDoc;
+}
+
+function getAuditNotas() {
+  return dbGetAll('audit_notas').sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+}
+
+function getAuditNotasAluno(alunoId) {
+  return getAuditNotas().filter(a => a.alunoId === alunoId);
+}
+
+function getAuditNotasTurma(turmaId) {
+  return getAuditNotas().filter(a => a.turmaId === turmaId);
 }

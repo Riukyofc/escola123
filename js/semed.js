@@ -18,6 +18,7 @@ function loadSecInicio() {
   const turmas = dbGetAll('turmas').filter(t => t.ativo);
   const notas = dbGetAll('notas');
   const cfg = getConfig();
+  const escolas = dbGetAll('escolas_rede').filter(e => e.ativa);
 
   // Welcome
   const el = document.getElementById('wb-sec-nome');
@@ -26,13 +27,25 @@ function loadSecInicio() {
   const sp = document.getElementById('wb-sec-profs'); if (sp) sp.textContent = profs.length;
   const st = document.getElementById('wb-sec-turmas'); if (st) st.textContent = turmas.length;
 
-  // Taxa aprovação
+  // Taxa aprovação (NOVO FORMATO: docs por bimestre)
   let totalAvaliados = 0, aprovados = 0;
   alunos.forEach(a => {
-    const ns = notas.filter(n => n.alunoId === a.id);
-    ns.forEach(n => {
-      const an = getNotaAnual(n.b1, n.b2, n.b3, n.b4);
-      if (an !== null) { totalAvaliados++; if (an >= cfg.notaMinima) aprovados++; }
+    const discs = dbGetAll('disciplinas').filter(d => d.ativo);
+    discs.forEach(d => {
+      const notaDocs = dbGetAll('notas').filter(n => n.alunoId === a.id && n.disciplinaId === d.id);
+      if (notaDocs.length) {
+        const b1 = notaDocs.find(n => n.bimestre === 1);
+        const b2 = notaDocs.find(n => n.bimestre === 2);
+        const b3 = notaDocs.find(n => n.bimestre === 3);
+        const b4 = notaDocs.find(n => n.bimestre === 4);
+        const an = getNotaAnual(
+          b1 ? (b1.notaFinal ?? getNotaBimestral(b1)) : null,
+          b2 ? (b2.notaFinal ?? getNotaBimestral(b2)) : null,
+          b3 ? (b3.notaFinal ?? getNotaBimestral(b3)) : null,
+          b4 ? (b4.notaFinal ?? getNotaBimestral(b4)) : null
+        );
+        if (an !== null) { totalAvaliados++; if (an >= cfg.notaMinima) aprovados++; }
+      }
     });
   });
   const txAprov = totalAvaliados > 0 ? ((aprovados / totalAvaliados) * 100).toFixed(0) : '—';
@@ -45,20 +58,53 @@ function loadSecInicio() {
   const totalRepasse = repasses.reduce((s, r) => s + (r.valor || 0), 0);
   const estoque = dbGetAll('estoque_merenda');
   const criticos = estoque.filter(e => e.quantidade < e.minimo).length;
+  const alunosPorEscola = escolas.length > 0 ? Math.round(alunos.length / escolas.length) : 0;
 
   document.getElementById('sec-stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Escolas Ativas</span><div class="stat-icon purple"><i class="fa-solid fa-school"></i></div></div>
+      <div class="stat-num">${escolas.length}</div><div class="stat-desc">na rede municipal</div></div>
     <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">IDEB Atual</span><div class="stat-icon blue"><i class="fa-solid fa-chart-line"></i></div></div>
-      <div class="stat-num">${getUltimoIdeb()}</div><div class="stat-desc">Último resultado</div></div>
+      <div class="stat-num">${getUltimoIdeb()}</div><div class="stat-desc">último resultado</div></div>
     <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Circulares Pendentes</span><div class="stat-icon red"><i class="fa-solid fa-scroll"></i></div></div>
       <div class="stat-num" style="color:var(--danger)">${pendentes}</div><div class="stat-desc">aguardando ciência</div></div>
     <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Total Repassado</span><div class="stat-icon green"><i class="fa-solid fa-money-bill-wave"></i></div></div>
       <div class="stat-num" style="font-size:1.1rem">${formatCurrency(totalRepasse)}</div><div class="stat-desc">no ano letivo</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Média Alunos/Escola</span><div class="stat-icon amber"><i class="fa-solid fa-users-rectangle"></i></div></div>
+      <div class="stat-num">${alunosPorEscola}</div><div class="stat-desc">alunos por escola</div></div>
     <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Estoque Crítico</span><div class="stat-icon ${criticos > 0 ? 'red' : 'green'}"><i class="fa-solid fa-utensils"></i></div></div>
       <div class="stat-num" style="color:${criticos > 0 ? 'var(--danger)' : 'var(--success)'}">${criticos}</div><div class="stat-desc">itens abaixo do mínimo</div></div>`;
 
   renderIdebChart();
   renderEvasao();
   renderAlertasAuto();
+
+  // Resumo rápido das escolas
+  renderSecEscolasResumo(escolas);
+}
+
+function renderSecEscolasResumo(escolas) {
+  const el = document.getElementById('sec-escolas-resumo');
+  if (!el) return;
+  if (!escolas.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">Nenhuma escola ativa</div>'; return; }
+  const alunos = dbGetAll('alunos').filter(a => a.ativo);
+  const turmas = dbGetAll('turmas').filter(t => t.ativo);
+  el.innerHTML = escolas.map(e => {
+    const qtdAlunos = alunos.filter(a => a.escolaId === e.id).length;
+    const qtdTurmas = turmas.filter(t => t.escolaId === e.id).length;
+    const tipoBg = e.tipo === 'urbana' ? 'rgba(37,99,235,0.08)' : 'rgba(16,185,129,0.08)';
+    const tipoIcon = e.tipo === 'urbana' ? '🏙️' : '🌾';
+    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--r-md);background:${tipoBg};margin-bottom:8px;border:1px solid var(--border);transition:var(--t-fast)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform=''">
+      <div style="width:38px;height:38px;border-radius:var(--r-md);background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0"><i class="fa-solid fa-school"></i></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:.88rem;color:var(--text)">${esc(e.nome)} ${tipoIcon}</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:2px">Dir.: ${esc(e.diretorNome || '—')} · INEP: ${esc(e.codigoINEP || '—')}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <span class="badge badge-blue">${qtdTurmas} turmas</span>
+        <span class="badge badge-purple">${qtdAlunos} alunos</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function getUltimoIdeb() {
@@ -106,9 +152,10 @@ function renderEvasao() {
       let totalAulas = 0, faltas = 0;
       freqTurma.forEach(f => { const au = f.aulas?.find(x => x.alunoId === a.id); if (au) { totalAulas++; if (au.status === 'falta') faltas++; } });
       const taxaFalta = totalAulas > 0 ? (faltas / totalAulas) : 0;
-      const ns = notas.filter(n => n.alunoId === a.id);
+      const bimAtual = cfg.bimestreAtual || 1;
+      const nsAluno = notas.filter(n => n.alunoId === a.id && n.bimestre === bimAtual);
       let discBaixas = 0;
-      ns.forEach(n => { const bim = n[`b${cfg.bimestreAtual}`]; if (bim !== null && bim !== undefined && bim < cfg.notaMinima) discBaixas++; });
+      nsAluno.forEach(n => { const nf = n.notaFinal ?? getNotaBimestral(n); if (nf !== null && nf < cfg.notaMinima) discBaixas++; });
       if (taxaFalta > 0.25 || discBaixas >= 3) emRisco++;
     });
     totalRisco += emRisco;

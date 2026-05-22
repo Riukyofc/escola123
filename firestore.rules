@@ -212,6 +212,24 @@ service cloud.firestore {
       allow create: if isAuthenticated();
     }
 
+    // ── Audit Notas: read for all authenticated, create for all authenticated ──
+    match /audit_notas/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
+
+    // ── Grade Horária: read for all authenticated, write for diretor/secretaria ──
+    match /grade_horaria/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['diretor', 'secretaria']);
+    }
+
+    // ── Planejamentos: read for all authenticated, write for professor/diretor/secretaria ──
+    match /planejamentos/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAnyRole(['professor', 'diretor', 'secretaria']);
+    }
+
     // ── Mensagens: read/write for all authenticated ──
     match /mensagens/{id} {
       allow read, write: if isAuthenticated();

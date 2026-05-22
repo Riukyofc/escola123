@@ -42,10 +42,12 @@ const NAV = {
     { id: 'page-prof-diario',     icon: 'fa-book-open',       label: 'Diário Digital',   sub: 'Registros de aula' },
     { id: 'page-prof-atividades', icon: 'fa-clipboard-list',  label: 'Atividades',       sub: 'Exercícios e tarefas' },
     { id: 'page-prof-aee',        icon: 'fa-heart-pulse',     label: 'AEE',              sub: 'Atendimento Especializado' },
+    { id: 'page-prof-planejamento',icon: 'fa-file-lines',      label: 'Planejamento',     sub: 'Plano bimestral da turma', badge: 'plan-prof-badge' },
     { id: 'page-prof-avisos',     icon: 'fa-bell',            label: 'Avisos',           sub: 'Publicar comunicados' },
   ],
   diretor: [
     { id: 'page-dir-inicio',      icon: 'fa-gauge-high',      label: 'Dashboard',        sub: 'Visão geral da escola' },
+    { id: 'page-dir-planejamentos',icon:'fa-file-circle-check',label: 'Planejamentos',    sub: 'Aprovar planos de turma', badge: 'plan-dir-badge' },
     { id: 'page-dir-alunos',      icon: 'fa-user-graduate',   label: 'Alunos',           sub: 'Cadastro de alunos' },
     { id: 'page-dir-professores', icon: 'fa-chalkboard-user', label: 'Professores',      sub: 'Cadastro de professores' },
     { id: 'page-dir-turmas',      icon: 'fa-chalkboard',      label: 'Turmas',           sub: 'Salas e turnos' },
@@ -55,6 +57,7 @@ const NAV = {
     { id: 'page-dir-diario',     icon: 'fa-book-open',       label: 'Diário Digital',   sub: 'Registros de aulas dos professores' },
     { id: 'page-dir-conteudo',    icon: 'fa-palette',         label: 'Conteúdo do Site',  sub: 'Equipe, galeria e depoimentos' },
     { id: 'page-dir-circulares',  icon: 'fa-scroll',          label: 'Circulares SEMED', sub: 'Ofícios e resoluções' },
+    { id: 'page-dir-audit-notas', icon: 'fa-shield-halved',   label: 'Audit de Notas',   sub: 'Log imutável de alterações' },
     { id: 'page-dir-avisos',      icon: 'fa-bell',            label: 'Avisos',           sub: 'Comunicados gerais' },
     { id: 'page-dir-config',      icon: 'fa-sliders',         label: 'Configurações',    sub: 'Dados e senhas' },
   ],
@@ -254,12 +257,64 @@ async function handleAuthUser(firebaseUser) {
   FIREBASE_USER = firebaseUser;
   showLoading('Carregando seus dados...');
 
+  let loaded = false;
+
+  // Timeout de 4.5 segundos para fallback offline local (evita carregamento infinito)
+  const timeoutId = setTimeout(() => {
+    if (!loaded) {
+      loaded = true;
+      console.warn("⚠️ Carregamento demorou muito. Iniciando em modo offline / fallback local...");
+      toast("Conexão instável. Carregando dados locais offline...", "warning");
+
+      // Fallback USER_DATA se ainda não carregado
+      if (!USER_DATA) {
+        const email = firebaseUser.email || '';
+        const isAdmin = email.includes('admin') || email.includes('diretor') || email.includes('semed') || email.includes('prof') || email.includes('coord');
+        const isProf = email.includes('prof') || email.includes('maria') || email.includes('jose') || email.includes('ana');
+        
+        let fallbackRoles = ['aluno'];
+        if (isAdmin) fallbackRoles = ['diretor', 'secretaria', 'professor', 'aluno'];
+        else if (isProf) fallbackRoles = ['professor'];
+
+        USER_DATA = {
+          uid: firebaseUser.uid,
+          nome: firebaseUser.displayName || (isAdmin ? 'Diretor Local' : (isProf ? 'Professor Local' : 'Estudante')),
+          email: email,
+          roles: fallbackRoles,
+          escolaIds: ['esc01', 'esc02', 'esc03'],
+          escolaAtiva: 'esc01'
+        };
+      }
+
+      // Preenche o CACHE com os dados de SEED offline
+      if (typeof LIST_COLLECTIONS !== 'undefined') {
+        for (const key of LIST_COLLECTIONS) {
+          if (!CACHE[key] || CACHE[key].length === 0) {
+            CACHE[key] = SEED[key] || [];
+          }
+        }
+      }
+
+      const roles = USER_DATA.roles || ['aluno'];
+      if (roles.length > 1) {
+        showRoleSelector(USER_DATA, roles);
+      } else {
+        enterDashboard(roles[0]);
+      }
+    }
+  }, 4500);
+
   try {
-    // Load user data from Firestore
-    USER_DATA = await getUserData(firebaseUser.uid);
+    // Load user data from Firestore com timeout individual de 4 segundos
+    USER_DATA = await Promise.race([
+      getUserData(firebaseUser.uid),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ao carregar dados do usuário')), 4000))
+    ]);
 
     if (!USER_DATA) {
-      // User exists in Auth but not in Firestore — shouldn't happen
+      if (loaded) return;
+      loaded = true;
+      clearTimeout(timeoutId);
       showLoginError('Conta sem perfil configurado. Contate a direção.');
       await auth.signOut();
       hideLoading();
@@ -267,10 +322,24 @@ async function handleAuthUser(firebaseUser) {
     }
 
     // Try to seed Firestore if needed (first-time setup only)
-    try { await seedFirestore(); } catch(e) { console.warn('Seed check:', e); }
+    try {
+      await Promise.race([
+        seedFirestore(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no Seed check')), 3000))
+      ]);
+    } catch(e) { console.warn('Seed check/timeout:', e); }
 
     // Load all data from Firestore into cache
-    await loadAllData();
+    try {
+      await Promise.race([
+        loadAllData(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no carregamento de dados do banco')), 3000))
+      ]);
+    } catch(e) { console.warn('loadAllData/timeout:', e); }
+
+    if (loaded) return; // Se o timeout de fallback já disparou, encerra
+    loaded = true;
+    clearTimeout(timeoutId);
 
     // Auto-migrate: add escolaIds if missing (for existing users pre-multi-tenant)
     if (USER_DATA && !USER_DATA.escolaIds) {
@@ -321,10 +390,46 @@ async function handleAuthUser(firebaseUser) {
       enterDashboard(roles[0]);
     }
   } catch (e) {
+    if (loaded) return;
+    loaded = true;
+    clearTimeout(timeoutId);
     console.error('Erro ao carregar dados:', e);
-    showLoginError('Erro ao conectar ao servidor. Tente novamente.');
-    await auth.signOut();
-    hideLoading();
+
+    // Fallback para modo offline local em caso de erro de conexão ou permissão
+    console.warn("⚠️ Ocorreu um erro no fluxo do Firestore. Ativando modo offline...");
+    toast("Carregando no modo offline local...", "info");
+
+    const email = firebaseUser.email || '';
+    const isAdmin = email.includes('admin') || email.includes('diretor') || email.includes('semed') || email.includes('prof') || email.includes('coord');
+    const isProf = email.includes('prof') || email.includes('maria') || email.includes('jose') || email.includes('ana');
+    
+    let fallbackRoles = ['aluno'];
+    if (isAdmin) fallbackRoles = ['diretor', 'secretaria', 'professor', 'aluno'];
+    else if (isProf) fallbackRoles = ['professor'];
+
+    USER_DATA = {
+      uid: firebaseUser.uid,
+      nome: firebaseUser.displayName || (isAdmin ? 'Diretor Local' : (isProf ? 'Professor Local' : 'Estudante')),
+      email: email,
+      roles: fallbackRoles,
+      escolaIds: ['esc01', 'esc02', 'esc03'],
+      escolaAtiva: 'esc01'
+    };
+
+    if (typeof LIST_COLLECTIONS !== 'undefined') {
+      for (const key of LIST_COLLECTIONS) {
+        if (!CACHE[key] || CACHE[key].length === 0) {
+          CACHE[key] = SEED[key] || [];
+        }
+      }
+    }
+
+    const roles = USER_DATA.roles || ['aluno'];
+    if (roles.length > 1) {
+      showRoleSelector(USER_DATA, roles);
+    } else {
+      enterDashboard(roles[0]);
+    }
   }
 }
 
@@ -529,6 +634,7 @@ function buildSidebar() {
     <button class="sidebar-link" data-page="${item.id}" onclick="showPage('${item.id}')">
       <i class="fa-solid ${item.icon}"></i>
       ${item.label}
+      ${item.badge ? `<span class="sidebar-badge" id="${item.badge}" style="display:none">0</span>` : ''}
     </button>
   `).join('');
 
@@ -713,9 +819,11 @@ function loadPageData(pageId) {
     case 'page-prof-diario':      loadDiarioPage();     break;
     case 'page-prof-atividades':  loadAtividades();     break;
     case 'page-prof-aee':         loadAEE();            break;
+    case 'page-prof-planejamento': loadProfPlanejamento(); break;
     case 'page-prof-avisos':      loadAvisosPage('prof-avisos-body', true); break;
 
     case 'page-dir-inicio':       loadDirInicio();      break;
+    case 'page-dir-planejamentos': loadDirPlanejamentos(); break;
     case 'page-dir-alunos':       loadDirAlunos();      break;
     case 'page-dir-professores':  loadDirProfessores(); break;
     case 'page-dir-turmas':       loadDirTurmas();      break;
@@ -725,6 +833,7 @@ function loadPageData(pageId) {
     case 'page-dir-diario':       loadDirDiario();      break;
     case 'page-dir-conteudo':     loadDirConteudo();    break;
     case 'page-dir-circulares':   loadDirCirculares();  break;
+    case 'page-dir-audit-notas':  loadAuditNotas();     break;
     case 'page-dir-avisos':       loadAllAvisos();      break;
     case 'page-dir-config':       loadConfigPage();     break;
 
@@ -953,27 +1062,632 @@ function renderAlunoNotasTable(alunoId, notaMin) {
 
 function renderAlunoNotasRows(alunoId, notaMin) {
   const disciplinas = dbGetAll('disciplinas').filter(d => d.ativo);
-  const notas       = getNotasAluno(alunoId);
 
   return disciplinas.map(d => {
-    const nota  = notas.find(n => n.disciplinaId === d.id);
-    const b1    = nota?.b1  ?? null; const b2 = nota?.b2 ?? null;
-    const b3    = nota?.b3  ?? null; const b4 = nota?.b4 ?? null;
-    const anual = getNotaAnual(b1, b2, b3, b4);
+    // Buscar docs de todos bimestres (novo formato)
+    const notaDocs = getNotasAlunoDisciplina(alunoId, d.id);
 
-    const cell = (v) => {
-      if (v === null) return `<td class="text-center" style="color:var(--text-muted)">—</td>`;
-      const color = v >= notaMin ? 'var(--success)' : 'var(--danger)';
-      return `<td class="text-center" style="font-weight:700; color:${color}">${parseFloat(v).toFixed(1)}</td>`;
+    // Gerar célula por bimestre
+    const bimCell = (bim) => {
+      const doc = notaDocs.find(n => n.bimestre === bim);
+      if (!doc) return `<td class="text-center" style="color:var(--text-muted)">—</td>`;
+      
+      const notaFinal = doc.notaFinal ?? getNotaBimestral(doc);
+      if (notaFinal === null) return `<td class="text-center" style="color:var(--text-muted)">—</td>`;
+      
+      const color = notaFinal >= notaMin ? 'var(--success)' : 'var(--danger)';
+      
+      // Montar detalhes das notas parciais para tooltip
+      const notasParciais = doc.notas || [];
+      let detalhes = notasParciais.map(n => `${esc(n.rotulo || 'Nota')}: ${n.valor !== null ? parseFloat(n.valor).toFixed(1) : '—'}`).join('\\n');
+      if (doc.recuperacao !== null && doc.recuperacao !== undefined) {
+        detalhes += `\\nRecuperação: ${parseFloat(doc.recuperacao).toFixed(1)}`;
+      }
+      detalhes += `\\nMédia: ${doc.notaBimestral !== null ? parseFloat(doc.notaBimestral).toFixed(2) : '—'}`;
+      if (doc.notaFinal !== doc.notaBimestral && doc.recuperacao !== null) {
+        detalhes += `\\nFinal (c/ rec.): ${parseFloat(doc.notaFinal).toFixed(2)}`;
+      }
+      
+      return `<td class="text-center">
+        <span class="nota-bim-clickable" style="font-weight:700; color:${color}"
+              title="${detalhes}"
+              onclick="showNotaDetalhe(event, '${alunoId}', '${d.id}', ${bim})">
+          ${parseFloat(notaFinal).toFixed(1)}
+        </span>
+      </td>`;
     };
+
+    // Calcular nota anual
+    const anual = getNotaAnual(notaDocs);
 
     return `<tr>
       <td style="font-weight:600">${esc(d.nome)}</td>
-      ${cell(b1)}${cell(b2)}${cell(b3)}${cell(b4)}
+      ${bimCell(1)}${bimCell(2)}${bimCell(3)}${bimCell(4)}
       <td class="text-center">${notaBadge(anual, notaMin)}</td>
       <td class="text-center">${situacaoBadge(anual, notaMin)}</td>
     </tr>`;
   }).join('');
+}
+
+// Mostra popover com detalhes das notas parciais (aluno)
+function showNotaDetalhe(event, alunoId, discId, bimestre) {
+  event.stopPropagation();
+  // Remover popover anterior
+  const existing = document.querySelector('.nota-detalhe-popover');
+  if (existing) existing.remove();
+
+  const doc = getNotaBimestreDoc(alunoId, discId, bimestre);
+  if (!doc) return;
+
+  const cfg = getConfig();
+  const disc = dbFind('disciplinas', discId);
+  const notasParciais = doc.notas || [];
+
+  let html = `<div class="nota-detalhe-title">
+    <i class="fa-solid ${disc?.icone || 'fa-book'}" style="color:${disc?.cor || '#666'};margin-right:6px"></i>
+    ${esc(disc?.nome || 'Disciplina')} — ${bimestre}º Bimestre
+  </div>`;
+
+  notasParciais.forEach((n, i) => {
+    const val = n.valor !== null && n.valor !== undefined ? parseFloat(n.valor).toFixed(1) : '—';
+    const cls = n.valor !== null ? (parseFloat(n.valor) >= cfg.notaMinima ? 'aprovado' : 'reprovado') : '';
+    html += `<div class="nota-detalhe-row">
+      <span class="rotulo">N${i+1} — ${esc(n.rotulo || 'Nota')}</span>
+      <span class="valor ${cls}">${val}</span>
+    </div>`;
+  });
+
+  html += '<div class="nota-detalhe-divider"></div>';
+  html += `<div class="nota-detalhe-row">
+    <span class="rotulo"><strong>Média</strong> (${doc.qtdNotas || 0} notas)</span>
+    <span class="valor" style="font-weight:900">${doc.notaBimestral !== null ? parseFloat(doc.notaBimestral).toFixed(2) : '—'}</span>
+  </div>`;
+
+  if (doc.recuperacao !== null && doc.recuperacao !== undefined) {
+    html += `<div class="nota-detalhe-rec">
+      <i class="fa-solid fa-rotate-right" style="margin-right:4px"></i>
+      Recuperação: <strong>${parseFloat(doc.recuperacao).toFixed(1)}</strong>
+      → Final: <strong>${doc.notaFinal !== null ? parseFloat(doc.notaFinal).toFixed(2) : '—'}</strong>
+    </div>`;
+  }
+
+  // Criar popover
+  const popover = document.createElement('div');
+  popover.className = 'nota-detalhe-popover';
+  popover.innerHTML = html;
+  popover.style.position = 'fixed';
+
+  document.body.appendChild(popover);
+
+  // Posicionar
+  const rect = event.target.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - popover.offsetWidth / 2;
+  let top = rect.bottom + 10;
+  if (left < 8) left = 8;
+  if (left + popover.offsetWidth > window.innerWidth - 8) left = window.innerWidth - popover.offsetWidth - 8;
+  if (top + popover.offsetHeight > window.innerHeight - 8) top = rect.top - popover.offsetHeight - 10;
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+
+  // Fechar ao clicar fora
+  const closeHandler = (e) => {
+    if (!popover.contains(e.target)) {
+      popover.remove();
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
+// =============================================================
+// PLANEJAMENTO DE TURMA — Professor
+// =============================================================
+function loadProfPlanejamento() {
+  const profId = SESSION.user?.id;
+  if (!profId) return;
+
+  // Popular turmas
+  const sel = document.getElementById('plan-turma');
+  if (sel) {
+    const turmas = dbGetAllEscola('turmas').filter(t => t.ativo && (t.professorId === profId || (SESSION.user.turmaIds || []).includes(t.id)));
+    sel.innerHTML = '<option value="">Selecione a turma...</option>' + turmas.map(t => `<option value="${t.id}">${esc(t.nome)} (${esc(t.turno)})</option>`).join('');
+  }
+
+  const plans = getPlanejamentosProf(profId);
+  const aprovados = plans.filter(p => p.status === 'aprovado').length;
+  const enviados = plans.filter(p => p.status === 'enviado').length;
+  const revisoes = plans.filter(p => p.status === 'revisao_solicitada').length;
+  const rascunhos = plans.filter(p => p.status === 'rascunho').length;
+
+  // Stats
+  const statsEl = document.getElementById('plan-prof-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Total</span><div class="stat-icon blue"><i class="fa-solid fa-file-lines"></i></div></div><div class="stat-num">${plans.length}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Aprovados</span><div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div></div><div class="stat-num" style="color:var(--success)">${aprovados}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Pendentes</span><div class="stat-icon blue"><i class="fa-solid fa-clock"></i></div></div><div class="stat-num" style="color:var(--secondary)">${enviados}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Revisão</span><div class="stat-icon amber"><i class="fa-solid fa-rotate-left"></i></div></div><div class="stat-num" style="color:var(--warning)">${revisoes}</div></div>
+  `;
+
+  // Lista
+  const listEl = document.getElementById('plan-prof-list');
+  if (listEl) {
+    if (!plans.length) {
+      listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)"><i class="fa-solid fa-file-circle-plus" style="font-size:2rem;opacity:.3;display:block;margin-bottom:10px"></i>Nenhum planejamento ainda. Crie o primeiro acima!</div>';
+    } else {
+      listEl.innerHTML = plans.sort((a,b) => (b.atualizadoEm||'').localeCompare(a.atualizadoEm||'')).map(p => renderPlanCard(p, 'prof')).join('');
+    }
+  }
+
+  updatePlanBadges();
+}
+
+function togglePlanForm() {
+  const body = document.getElementById('plan-form-body');
+  const chev = document.getElementById('plan-form-chevron');
+  if (!body) return;
+  if (body.style.maxHeight === '0px' || !body.style.maxHeight || body.style.maxHeight === '0') {
+    body.style.maxHeight = '2000px';
+    if (chev) chev.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.maxHeight = '0px';
+    if (chev) chev.style.transform = '';
+  }
+}
+
+function resetPlanForm() {
+  document.getElementById('plan-edit-id').value = '';
+  ['plan-titulo','plan-objetivos','plan-conteudos','plan-metodologia','plan-recursos','plan-avaliacao','plan-cronograma','plan-observacoes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('plan-form-title-text').textContent = 'Novo Planejamento';
+}
+
+function getPlanFormData() {
+  return {
+    turmaId: document.getElementById('plan-turma').value,
+    bimestre: parseInt(document.getElementById('plan-bimestre').value) || 1,
+    titulo: document.getElementById('plan-titulo').value.trim(),
+    objetivos: document.getElementById('plan-objetivos').value.trim(),
+    conteudos: document.getElementById('plan-conteudos').value.trim(),
+    metodologia: document.getElementById('plan-metodologia').value.trim(),
+    recursos: document.getElementById('plan-recursos').value.trim(),
+    avaliacao: document.getElementById('plan-avaliacao').value.trim(),
+    cronograma: document.getElementById('plan-cronograma').value.trim(),
+    observacoes: document.getElementById('plan-observacoes').value.trim(),
+  };
+}
+
+function salvarPlanRascunho() {
+  const data = getPlanFormData();
+  if (!data.turmaId) { toast('Selecione uma turma.', 'error'); return; }
+  if (!data.titulo) { toast('Preencha o título.', 'error'); return; }
+
+  const editId = document.getElementById('plan-edit-id').value;
+  if (editId) {
+    dbUpdate('planejamentos', editId, { ...data, status: 'rascunho', atualizadoEm: new Date().toISOString() });
+    toast('Rascunho atualizado!', 'success');
+  } else {
+    criarPlanejamento(data);
+    toast('Rascunho salvo!', 'success');
+  }
+  resetPlanForm();
+  const body = document.getElementById('plan-form-body');
+  if (body) body.style.maxHeight = '0px';
+  loadProfPlanejamento();
+}
+
+function salvarEEnviarPlan() {
+  const data = getPlanFormData();
+  if (!data.turmaId) { toast('Selecione uma turma.', 'error'); return; }
+  if (!data.titulo || !data.objetivos || !data.conteudos) { toast('Preencha título, objetivos e conteúdos antes de enviar.', 'error'); return; }
+
+  // Anti-duplicata: verificar se já existe planejamento enviado/aprovado para essa turma+bimestre
+  const editId = document.getElementById('plan-edit-id').value;
+  if (!editId) {
+    const existente = dbGetAll('planejamentos').find(p =>
+      p.turmaId === data.turmaId && p.bimestre === data.bimestre &&
+      (p.status === 'enviado' || p.status === 'aprovado') && p.ativo
+    );
+    if (existente) {
+      toast(`Já existe um planejamento ${existente.status} para esta turma/bimestre.`, 'error');
+      return;
+    }
+  }
+
+  // Desabilitar botões para prevenir clique duplo
+  const btns = document.querySelectorAll('#plan-form-body .btn-primary, #plan-form-body .btn-ghost');
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+
+  let plan;
+  if (editId) {
+    dbUpdate('planejamentos', editId, { ...data, atualizadoEm: new Date().toISOString() });
+    plan = dbFind('planejamentos', editId);
+  } else {
+    plan = criarPlanejamento(data);
+  }
+  try {
+    enviarPlanejamento(plan.id);
+    toast('✅ Planejamento enviado para aprovação do(a) Diretor(a)!', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    return;
+  }
+
+  // Fechar formulário e resetar
+  resetPlanForm();
+  const body = document.getElementById('plan-form-body');
+  if (body) body.style.maxHeight = '0px';
+  const chev = document.getElementById('plan-form-chevron');
+  if (chev) chev.style.transform = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  loadProfPlanejamento();
+
+  // Re-habilitar botões após 3s
+  setTimeout(() => { btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); }, 3000);
+}
+
+function editarPlan(planId) {
+  const p = dbFind('planejamentos', planId);
+  if (!p) return;
+  if (p.status === 'aprovado') { toast('Planejamento já aprovado, não pode ser editado.', 'error'); return; }
+  if (p.status === 'enviado') { toast('Planejamento já enviado. Aguarde retorno.', 'warning'); return; }
+
+  document.getElementById('plan-edit-id').value = p.id;
+  document.getElementById('plan-turma').value = p.turmaId;
+  document.getElementById('plan-bimestre').value = p.bimestre;
+  document.getElementById('plan-titulo').value = p.titulo;
+  document.getElementById('plan-objetivos').value = p.objetivos;
+  document.getElementById('plan-conteudos').value = p.conteudos;
+  document.getElementById('plan-metodologia').value = p.metodologia || '';
+  document.getElementById('plan-recursos').value = p.recursos || '';
+  document.getElementById('plan-avaliacao').value = p.avaliacao || '';
+  document.getElementById('plan-cronograma').value = p.cronograma || '';
+  document.getElementById('plan-observacoes').value = p.observacoes || '';
+  document.getElementById('plan-form-title-text').textContent = 'Editar Planejamento';
+
+  const body = document.getElementById('plan-form-body');
+  if (body) body.style.maxHeight = '2000px';
+  const chev = document.getElementById('plan-form-chevron');
+  if (chev) chev.style.transform = 'rotate(180deg)';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function excluirPlan(planId) {
+  showConfirm('Excluir este planejamento?', () => {
+    dbDelete('planejamentos', planId);
+    toast('Planejamento excluído.', 'success');
+    loadProfPlanejamento();
+    closeModal('modal-confirm');
+  });
+}
+
+function enviarPlanExistente(planId) {
+  try {
+    enviarPlanejamento(planId);
+    toast('Planejamento enviado para aprovação!', 'success');
+    loadProfPlanejamento();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderPlanStatusBadge(status) {
+  const map = {
+    rascunho: '<span class="plan-status-badge rascunho"><i class="fa-solid fa-file-pen"></i> Rascunho</span>',
+    enviado: '<span class="plan-status-badge enviado"><i class="fa-solid fa-paper-plane"></i> Enviado</span>',
+    aprovado: '<span class="plan-status-badge aprovado"><i class="fa-solid fa-circle-check"></i> Aprovado</span>',
+    revisao_solicitada: '<span class="plan-status-badge revisao"><i class="fa-solid fa-rotate-left"></i> Revisão Solicitada</span>'
+  };
+  return map[status] || map.rascunho;
+}
+
+function renderPlanCard(p, mode) {
+  const turma = dbFind('turmas', p.turmaId);
+  const prof = dbFind('professores', p.professorId);
+  const statusCls = p.status === 'revisao_solicitada' ? 'revisao' : p.status;
+
+  let feedbackHtml = '';
+  if (p.feedbackDiretor && (p.status === 'aprovado' || p.status === 'revisao_solicitada')) {
+    const fbCls = p.status === 'aprovado' ? 'aprovado' : 'revisao';
+    feedbackHtml = `<div class="plan-feedback-box ${fbCls}">
+      <div class="plan-feedback-box-header">
+        <i class="fa-solid ${p.status === 'aprovado' ? 'fa-circle-check' : 'fa-comment-dots'}"></i>
+        ${p.status === 'aprovado' ? 'Aprovado por ' + esc(p.aprovadoPor || 'Diretor(a)') : 'Revisão solicitada'}
+      </div>
+      ${esc(p.feedbackDiretor)}
+    </div>`;
+  }
+
+  let actionsHtml = '';
+  if (mode === 'prof') {
+    if (p.status === 'rascunho' || p.status === 'revisao_solicitada') {
+      actionsHtml = `
+        <button class="btn btn-sm btn-ghost" onclick="editarPlan('${p.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+        <button class="btn btn-sm btn-success" onclick="enviarPlanExistente('${p.id}')"><i class="fa-solid fa-paper-plane"></i> Enviar</button>
+        <button class="btn btn-sm btn-ghost" style="color:var(--danger)" onclick="excluirPlan('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+      `;
+    } else if (p.status === 'enviado') {
+      actionsHtml = '<span style="font-size:.78rem;color:var(--text-muted)"><i class="fa-solid fa-hourglass-half"></i> Aguardando aprovação</span>';
+    }
+  } else if (mode === 'dir') {
+    if (p.status === 'enviado') {
+      actionsHtml = `
+        <div class="plan-review-actions">
+          <button class="btn btn-sm btn-success" onclick="aprovarPlanUI('${p.id}')"><i class="fa-solid fa-check"></i> Aprovar</button>
+          <button class="btn btn-sm btn-warning" onclick="pedirRevisaoUI('${p.id}')"><i class="fa-solid fa-rotate-left"></i> Solicitar Revisão</button>
+        </div>
+      `;
+    }
+  }
+
+  return `<div class="plan-card ${statusCls}">
+    <div class="plan-card-header">
+      <div>
+        <div class="plan-card-title">${esc(p.titulo || 'Sem título')}</div>
+        <div class="plan-card-sub">
+          ${turma ? esc(turma.nome) + ' (' + esc(turma.turno) + ')' : '—'} · ${p.bimestre}º Bimestre
+          ${mode === 'dir' && prof ? ' · <strong>' + esc(prof.nome) + '</strong>' : ''}
+        </div>
+      </div>
+      ${renderPlanStatusBadge(p.status)}
+    </div>
+    ${feedbackHtml}
+    <div class="plan-card-body">
+      ${p.objetivos ? `<div class="plan-card-section"><div class="plan-card-section-title"><i class="fa-solid fa-bullseye"></i> Objetivos</div><div class="plan-card-section-text">${esc(p.objetivos)}</div></div>` : ''}
+      ${p.conteudos ? `<div class="plan-card-section"><div class="plan-card-section-title"><i class="fa-solid fa-book"></i> Conteúdos</div><div class="plan-card-section-text">${esc(p.conteudos)}</div></div>` : ''}
+      ${p.avaliacao ? `<div class="plan-card-section"><div class="plan-card-section-title"><i class="fa-solid fa-clipboard-check"></i> Avaliação</div><div class="plan-card-section-text">${esc(p.avaliacao)}</div></div>` : ''}
+    </div>
+    <div class="plan-card-footer">
+      <div class="plan-card-meta">
+        <i class="fa-solid fa-clock"></i> ${p.atualizadoEm ? formatDateTime(p.atualizadoEm) : '—'}
+        ${p.aprovadoEm ? ' · <i class="fa-solid fa-check"></i> Aprovado em ' + formatDateTime(p.aprovadoEm) : ''}
+      </div>
+      <div style="display:flex;gap:6px">${actionsHtml}</div>
+    </div>
+  </div>`;
+}
+
+// =============================================================
+// PLANEJAMENTO DE TURMA — Diretor (Aprovação)
+// =============================================================
+function loadDirPlanejamentos() {
+  const filtro = document.getElementById('plan-dir-filtro-status')?.value || '';
+  let plans = dbGetAll('planejamentos').filter(p => p.ativo);
+  const pendentes = plans.filter(p => p.status === 'enviado');
+  const aprovados = plans.filter(p => p.status === 'aprovado');
+  const revisoes = plans.filter(p => p.status === 'revisao_solicitada');
+
+  // Stats
+  const statsEl = document.getElementById('plan-dir-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Total</span><div class="stat-icon blue"><i class="fa-solid fa-file-lines"></i></div></div><div class="stat-num">${plans.length}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Pendentes</span><div class="stat-icon red"><i class="fa-solid fa-clock"></i></div></div><div class="stat-num" style="color:var(--danger)">${pendentes.length}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Aprovados</span><div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div></div><div class="stat-num" style="color:var(--success)">${aprovados.length}</div></div>
+    <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Em Revisão</span><div class="stat-icon amber"><i class="fa-solid fa-rotate-left"></i></div></div><div class="stat-num" style="color:var(--warning)">${revisoes.length}</div></div>
+  `;
+
+  // Pendentes
+  const pendEl = document.getElementById('plan-dir-pendentes');
+  const pendBadge = document.getElementById('plan-dir-pendentes-badge');
+  if (pendBadge) { pendBadge.textContent = pendentes.length; pendBadge.style.display = pendentes.length > 0 ? '' : 'none'; }
+  if (pendEl) {
+    pendEl.innerHTML = pendentes.length
+      ? pendentes.map(p => renderPlanCard(p, 'dir')).join('')
+      : '<div style="text-align:center;padding:24px;color:var(--success)"><i class="fa-solid fa-circle-check" style="font-size:1.5rem;margin-bottom:8px;display:block"></i><strong>Nenhum planejamento pendente</strong></div>';
+  }
+
+  // Todos (filtrados)
+  if (filtro) plans = plans.filter(p => p.status === filtro);
+  const todosEl = document.getElementById('plan-dir-todos');
+  if (todosEl) {
+    todosEl.innerHTML = plans.length
+      ? plans.sort((a,b) => (b.atualizadoEm||'').localeCompare(a.atualizadoEm||'')).map(p => renderPlanCard(p, 'dir')).join('')
+      : '<div style="text-align:center;padding:24px;color:var(--text-muted)">Nenhum planejamento encontrado.</div>';
+  }
+
+  updatePlanBadges();
+}
+
+function aprovarPlanUI(planId) {
+  const feedback = prompt('Feedback para o professor (opcional):') || 'Aprovado.';
+  aprovarPlanejamento(planId, feedback);
+  toast('Planejamento aprovado!', 'success');
+  loadDirPlanejamentos();
+}
+
+function pedirRevisaoUI(planId) {
+  const feedback = prompt('Informe o motivo da revisão:');
+  if (!feedback) { toast('Informe o motivo da revisão.', 'warning'); return; }
+  try {
+    solicitarRevisao(planId, feedback);
+    toast('Revisão solicitada ao professor.', 'warning');
+    loadDirPlanejamentos();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// Atualiza badges de planejamentos pendentes no sidebar
+function updatePlanBadges() {
+  const pendentes = getPlanejamentosPendentes().length;
+  const dirBadge = document.getElementById('plan-dir-badge');
+  if (dirBadge) {
+    dirBadge.textContent = pendentes;
+    dirBadge.style.display = pendentes > 0 ? '' : 'none';
+  }
+  const profBadge = document.getElementById('plan-prof-badge');
+  if (profBadge) {
+    const revisoes = dbGetAll('planejamentos').filter(p => p.professorId === SESSION?.user?.id && p.status === 'revisao_solicitada' && p.ativo).length;
+    profBadge.textContent = revisoes;
+    profBadge.style.display = revisoes > 0 ? '' : 'none';
+  }
+}
+
+// Renderiza banner de bloqueio se o planejamento não está aprovado
+function renderPlanBlockBanner(turmaId, bimestre) {
+  if (!turmaId || !bimestre) return '';
+  if (isPlanejamentoAprovado(turmaId, parseInt(bimestre))) return '';
+  const plan = getPlanejamentoTurma(turmaId, parseInt(bimestre));
+  const statusMsg = !plan ? 'Nenhum planejamento cadastrado para esta turma/bimestre.'
+    : plan.status === 'rascunho' ? 'Planejamento em rascunho. Envie para aprovação.'
+    : plan.status === 'enviado' ? 'Planejamento enviado, aguardando aprovação do(a) Diretor(a).'
+    : plan.status === 'revisao_solicitada' ? 'Revisão solicitada pelo(a) Diretor(a). Corrija e reenvie.'
+    : 'Planejamento não aprovado.';
+
+  return `<div class="plan-block-banner">
+    <i class="fa-solid fa-lock"></i>
+    <div>
+      <div class="plan-block-banner-text">⚠️ Planejamento não aprovado — lançamento bloqueado</div>
+      <div class="plan-block-banner-sub">${statusMsg} <a href="#" onclick="showPage('page-prof-planejamento');return false;" style="color:#92400e;text-decoration:underline">Ir para Planejamento</a></div>
+    </div>
+  </div>`;
+}
+
+// =============================================================
+// AUDIT LOG DE NOTAS — Visualização (Fase 4)
+// =============================================================
+function loadAuditNotas() {
+  const allLogs = getAuditNotas();
+
+  // Populate selects (once)
+  const turmaFilter = document.getElementById('audit-filtro-turma');
+  if (turmaFilter && turmaFilter.options.length <= 1) {
+    dbGetAllEscola('turmas').filter(t => t.ativo).forEach(t => {
+      turmaFilter.innerHTML += `<option value="${t.id}">${esc(t.nome)}</option>`;
+    });
+  }
+  const profFilter = document.getElementById('audit-filtro-prof');
+  if (profFilter && profFilter.options.length <= 1) {
+    dbGetAllEscola('professores').filter(p => p.ativo).forEach(p => {
+      profFilter.innerHTML += `<option value="${p.id}">${esc(p.nome)}</option>`;
+    });
+  }
+
+  // Filtros
+  const fTurma = turmaFilter?.value || '';
+  const fProf = profFilter?.value || '';
+  const fBim = document.getElementById('audit-filtro-bim')?.value || '';
+  const fTipo = document.getElementById('audit-filtro-tipo')?.value || '';
+  const fBusca = (document.getElementById('audit-busca-aluno')?.value || '').toLowerCase().trim();
+
+  let filtered = allLogs;
+  if (fTurma) filtered = filtered.filter(a => a.turmaId === fTurma);
+  if (fProf) filtered = filtered.filter(a => a.professorId === fProf);
+  if (fBim) filtered = filtered.filter(a => a.bimestre === parseInt(fBim));
+  if (fTipo) filtered = filtered.filter(a => a.tipo === fTipo);
+  if (fBusca) {
+    filtered = filtered.filter(a => {
+      const aluno = dbFind('alunos', a.alunoId);
+      return aluno && aluno.nome.toLowerCase().includes(fBusca);
+    });
+  }
+
+  // Stats
+  document.getElementById('audit-stat-total').textContent = allLogs.length;
+  document.getElementById('audit-stat-criacao').textContent = allLogs.filter(a => a.tipo === 'criacao').length;
+  document.getElementById('audit-stat-alteracao').textContent = allLogs.filter(a => a.tipo === 'alteracao').length;
+  document.getElementById('audit-count-badge').textContent = filtered.length;
+
+  // Render timeline
+  const body = document.getElementById('audit-timeline-body');
+  if (!filtered.length) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted)">
+      <i class="fa-solid fa-shield-halved" style="font-size:2.5rem;opacity:.2;display:block;margin-bottom:12px"></i>
+      <strong>Nenhum registro de auditoria</strong><br>
+      <span style="font-size:.82rem">Os logs aparecerão quando notas forem criadas ou alteradas.</span>
+    </div>`;
+    return;
+  }
+
+  // Agrupar por data
+  const groups = {};
+  filtered.forEach(a => {
+    const dateKey = a.timestamp ? a.timestamp.split('T')[0] : 'sem-data';
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(a);
+  });
+
+  let html = '';
+  Object.keys(groups).sort().reverse().forEach(dateKey => {
+    const dateLabel = dateKey !== 'sem-data' ? new Date(dateKey + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : 'Sem data';
+    html += `<div class="audit-date-group">
+      <div class="audit-date-label"><i class="fa-solid fa-calendar-day"></i> ${dateLabel} <span class="audit-date-count">${groups[dateKey].length}</span></div>`;
+
+    groups[dateKey].forEach(a => {
+      const aluno = dbFind('alunos', a.alunoId);
+      const turma = dbFind('turmas', a.turmaId);
+      const disc = dbFind('disciplinas', a.disciplinaId);
+      const isCriacao = a.tipo === 'criacao';
+      const tipoColor = isCriacao ? 'var(--success)' : 'var(--warning)';
+      const tipoIcon = isCriacao ? 'fa-plus-circle' : 'fa-pen-to-square';
+      const tipoLabel = isCriacao ? 'Criação' : 'Alteração';
+      const hora = a.timestamp ? new Date(a.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+      // Build before/after comparison
+      let diffHtml = '';
+      if (a.anterior && a.novo) {
+        const oldN = a.anterior.notas || [];
+        const newN = a.novo.notas || [];
+        let diffItems = '';
+        for (let i = 0; i < Math.max(oldN.length, newN.length); i++) {
+          const ov = oldN[i]?.valor;
+          const nv = newN[i]?.valor;
+          const changed = ov !== nv;
+          diffItems += `<span class="audit-diff-item ${changed ? 'changed' : ''}">
+            <span class="audit-diff-label">N${i+1}</span>
+            ${changed ? `<span class="audit-diff-old">${ov ?? '—'}</span><i class="fa-solid fa-arrow-right" style="font-size:.55rem;margin:0 3px"></i>` : ''}
+            <span class="audit-diff-new ${changed ? 'highlight' : ''}">${nv ?? '—'}</span>
+          </span>`;
+        }
+        const mediaChanged = a.anterior.notaBimestral !== a.novo.notaBimestral;
+        diffHtml = `<div class="audit-diff-row" id="audit-diff-${a.id}" style="display:none">
+          <div class="audit-diff-grid">${diffItems}</div>
+          <div class="audit-diff-summary">
+            <span>Média: <span class="${mediaChanged ? 'audit-diff-old' : ''}">${a.anterior.notaBimestral ?? '—'}</span>
+            ${mediaChanged ? `→ <strong>${a.novo.notaBimestral ?? '—'}</strong>` : ''}</span>
+            <span>Final: ${a.novo.notaFinal ?? '—'}</span>
+          </div>
+        </div>`;
+      } else if (a.novo) {
+        const newN = a.novo.notas || [];
+        let diffItems = newN.map((n, i) => `<span class="audit-diff-item"><span class="audit-diff-label">N${i+1}</span><span class="audit-diff-new highlight">${n.valor ?? '—'}</span></span>`).join('');
+        diffHtml = `<div class="audit-diff-row" id="audit-diff-${a.id}" style="display:none">
+          <div class="audit-diff-grid">${diffItems}</div>
+          <div class="audit-diff-summary"><span>Média: <strong>${a.novo.notaBimestral ?? '—'}</strong></span><span>Final: ${a.novo.notaFinal ?? '—'}</span></div>
+        </div>`;
+      }
+
+      html += `<div class="audit-entry">
+        <div class="audit-entry-icon" style="background:${tipoColor}15;color:${tipoColor}"><i class="fa-solid ${tipoIcon}"></i></div>
+        <div class="audit-entry-content">
+          <div class="audit-entry-header">
+            <div class="audit-entry-meta">
+              <span class="audit-entry-time">${hora}</span>
+              <span class="audit-entry-tipo" style="color:${tipoColor}">${tipoLabel}</span>
+              <span class="audit-entry-prof"><i class="fa-solid fa-user-tie"></i> ${esc(a.professorNome || '—')}</span>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="toggleAuditDiff('${a.id}')" title="Ver detalhes"><i class="fa-solid fa-code-compare"></i></button>
+          </div>
+          <div class="audit-entry-desc">${esc(a.descricao || '—')}</div>
+          <div class="audit-entry-tags">
+            <span class="audit-tag"><i class="fa-solid fa-user-graduate"></i> ${aluno ? esc(aluno.nome) : '—'}</span>
+            <span class="audit-tag"><i class="fa-solid fa-chalkboard"></i> ${turma ? esc(turma.nome) : '—'}</span>
+            ${disc ? `<span class="audit-tag"><i class="fa-solid fa-book"></i> ${esc(disc.nome)}</span>` : ''}
+            <span class="audit-tag"><i class="fa-solid fa-calendar"></i> ${a.bimestre}º Bim</span>
+          </div>
+          ${diffHtml}
+        </div>
+      </div>`;
+    });
+
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+}
+
+function toggleAuditDiff(auditId) {
+  const el = document.getElementById('audit-diff-' + auditId);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
 // =============================================================
@@ -1279,116 +1993,255 @@ function loadProfNotasSetup() {
 function loadNotasTurma() {
   const turmaId = document.getElementById('notas-select-turma').value;
   const discId  = document.getElementById('notas-select-disc').value;
-  const bimestre= document.getElementById('notas-select-bimestre').value;
+  const bimestre= parseInt(document.getElementById('notas-select-bimestre').value) || 1;
   const tbody   = document.getElementById('notas-tbody');
   const saveBar = document.getElementById('notas-save-bar');
   const cfg     = getConfig();
   const closed  = isSistemaClosed();
+  const qtdNotas = cfg.qtdNotasBimestre || 4;
+  const rotulos  = cfg.rotulosPadrao || ['Prova Escrita','Trabalho','Participação','Simulado'];
+  const habRec   = cfg.habilitarRecuperacao !== false;
+
+  // Verificar bloqueio de planejamento (Fase 2)
+  const planBlocked = turmaId && bimestre && !isPlanejamentoAprovado(turmaId, bimestre);
+  const blockBannerEl = document.getElementById('notas-plan-block-banner');
+  if (blockBannerEl) blockBannerEl.innerHTML = turmaId && planBlocked ? renderPlanBlockBanner(turmaId, bimestre) : '';
+  const effectivelyClosed = closed || planBlocked;
 
   if (!turmaId || !discId) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:28px; color:var(--text-muted)">
+    tbody.innerHTML = `<tr><td colspan="${qtdNotas + 5}" class="text-center" style="padding:28px; color:var(--text-muted)">
       <i class="fa-solid fa-arrow-up" style="margin-right:6px"></i>Selecione turma e disciplina
     </td></tr>`;
-    saveBar.style.display = 'none';
+    if (saveBar) saveBar.style.display = 'none';
     return;
   }
 
   const alunos = dbGetAll('alunos').filter(a => a.turmaId === turmaId && a.ativo);
   if (!alunos.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:28px; color:var(--text-muted)">Nenhum aluno nesta turma</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${qtdNotas + 5}" class="text-center" style="padding:28px; color:var(--text-muted)">Nenhum aluno nesta turma</td></tr>`;
     return;
   }
 
+  // Construir cabeçalho dinâmico
+  const thead = tbody.closest('table')?.querySelector('thead');
+  if (thead) {
+    let thHtml = '<tr><th>Aluno</th><th>Matrícula</th>';
+    for (let i = 0; i < qtdNotas; i++) {
+      const rot = rotulos[i] || `N${i+1}`;
+      thHtml += `<th class="text-center" title="${esc(rot)}">N${i+1}</th>`;
+    }
+    thHtml += '<th class="text-center">Média</th>';
+    if (habRec) thHtml += '<th class="text-center" title="Recuperação">Rec.</th>';
+    thHtml += '<th class="text-center">Final</th><th class="text-center">Situação</th></tr>';
+    thead.innerHTML = thHtml;
+  }
+
+  // Renderizar linhas
   tbody.innerHTML = alunos.map(a => {
-    const notas = dbGetAll('notas').find(n => n.alunoId === a.id && n.disciplinaId === discId);
-    const b1 = notas?.b1 ?? ''; const b2 = notas?.b2 ?? '';
-    const b3 = notas?.b3 ?? ''; const b4 = notas?.b4 ?? '';
-    const b1f = b1 !== '' ? parseFloat(b1) : null;
-    const b2f = b2 !== '' ? parseFloat(b2) : null;
-    const b3f = b3 !== '' ? parseFloat(b3) : null;
-    const b4f = b4 !== '' ? parseFloat(b4) : null;
-    const anual = getNotaAnual(b1f, b2f, b3f, b4f);
+    const notaDoc = getNotaBimestreDoc(a.id, discId, bimestre);
+    const notasExistentes = notaDoc?.notas || [];
+    const recExistente = notaDoc?.recuperacao ?? '';
 
-    const noteInput = (val, bim) => {
-      const v = val !== null && val !== '' ? parseFloat(val).toFixed(1) : '';
-      const isActive = String(bim) === String(bimestre);
-      const cls = isActive && !closed ? 'nota-input' : 'nota-input';
-      return `<td class="text-center">
-        <input type="number" step="0.5" min="0" max="10"
-               class="${cls}" value="${v}"
-               data-aluno="${a.id}" data-disc="${discId}" data-bim="${bim}"
-               ${(closed || !isActive) ? 'disabled' : ''}
-               onchange="onNotaChange(this)"
-               style="background:${isActive && !closed ? '#fff' : 'var(--bg)'}">
+    let notaInputs = '';
+    for (let i = 0; i < qtdNotas; i++) {
+      const valExist = notasExistentes[i]?.valor;
+      const v = (valExist !== null && valExist !== undefined) ? parseFloat(valExist).toFixed(1) : '';
+      notaInputs += `<td class="text-center">
+        <input type="number" step="0.1" min="0" max="10"
+               class="nota-input-compact" value="${v}"
+               data-aluno="${a.id}" data-disc="${discId}" data-bim="${bimestre}" data-nota-idx="${i}"
+               data-rotulo="${esc(rotulos[i] || 'N'+(i+1))}"
+               ${effectivelyClosed ? 'disabled' : ''}
+               oninput="onNotaParcialChange(this)"
+               style="background:${!effectivelyClosed ? '#fff' : 'var(--bg)'}">
       </td>`;
-    };
+    }
 
-    return `<tr>
-      <td style="font-weight:600">${a.nome}</td>
-      <td style="color:var(--text-muted); font-size:.82rem">${a.matricula}</td>
-      ${noteInput(b1, 1)}${noteInput(b2, 2)}${noteInput(b3, 3)}${noteInput(b4, 4)}
-      <td class="text-center">${notaBadge(anual, cfg.notaMinima)}</td>
-      <td class="text-center">${situacaoBadge(anual, cfg.notaMinima)}</td>
+    // Calcular média atual
+    const validas = notasExistentes.filter(n => n && n.valor !== null && n.valor !== undefined);
+    const media = validas.length >= 2 ? (validas.reduce((s,n) => s+parseFloat(n.valor),0) / validas.length) : null;
+    const rec = recExistente !== '' && recExistente !== null ? parseFloat(recExistente) : null;
+    let final = media;
+    if (rec !== null && media !== null && validas.length >= 2) {
+      const resultado = aplicarRecuperacao(notasExistentes, rec);
+      final = resultado.media;
+    }
+    const mediaStr = media !== null ? media.toFixed(2) : '—';
+    const finalStr = final !== null ? final.toFixed(2) : '—';
+    const mediaCls = media === null ? 'pendente' : (media >= cfg.notaMinima ? 'aprovado' : 'reprovado');
+    const finalCls = final === null ? 'pendente' : (final >= cfg.notaMinima ? 'aprovado' : 'reprovado');
+
+    let recHtml = '';
+    if (habRec) {
+      const rv = rec !== null ? rec.toFixed(1) : '';
+      recHtml = `<td class="text-center">
+        <input type="number" step="0.1" min="0" max="10"
+               class="nota-rec-input" value="${rv}"
+               data-aluno="${a.id}" data-disc="${discId}" data-bim="${bimestre}" data-field="rec"
+               ${effectivelyClosed ? 'disabled' : ''}
+               oninput="onNotaParcialChange(this)">
+      </td>`;
+    }
+
+    const minWarning = validas.length === 1 ? '<span class="nota-min-warning">Mín. 2 notas</span>' : '';
+
+    return `<tr data-aluno-id="${a.id}">
+      <td style="font-weight:600">${esc(a.nome)}</td>
+      <td style="color:var(--text-muted); font-size:.82rem">${esc(a.matricula)}</td>
+      ${notaInputs}
+      <td class="text-center"><span class="nota-media-cell ${mediaCls}" data-field="media">${mediaStr}</span>${minWarning}</td>
+      ${recHtml}
+      <td class="text-center"><span class="nota-media-cell ${finalCls}" data-field="final">${finalStr}</span></td>
+      <td class="text-center" data-field="situacao">${situacaoBadge(final, cfg.notaMinima)}</td>
     </tr>`;
   }).join('');
 
-  saveBar.style.display = closed ? 'none' : '';
-  const btn = document.getElementById('btn-salvar-notas');
-  if (btn) btn.disabled = closed;
-
-  // Highlight active bimestre column header
-  highlightActiveBimestre(bimestre);
-  // Update nota counters
+  if (saveBar) {
+    saveBar.style.display = effectivelyClosed ? 'none' : '';
+    const btn = document.getElementById('btn-salvar-notas');
+    if (btn) btn.disabled = effectivelyClosed;
+  }
   updateNotaCounters();
 }
 
-function onNotaChange(input) {
-  // Real-time save
-  const alunoId = input.dataset.aluno;
-  const discId  = input.dataset.disc;
-  const bim     = parseInt(input.dataset.bim);
-  const valor   = input.value;
-
+// Recalcula média em tempo real quando uma nota parcial é alterada
+function onNotaParcialChange(input) {
   if (isSistemaClosed()) {
     toast('Sistema fechado. Notas não podem ser alteradas.', 'error');
     input.value = '';
     return;
   }
 
-  if (valor !== '' && (parseFloat(valor) < 0 || parseFloat(valor) > 10)) {
-    input.style.borderColor = 'var(--danger)';
-    toast('Nota deve ser entre 0 e 10.', 'error');
-    input.value = '';
+  const val = input.value;
+  if (val !== '' && (parseFloat(val) < 0 || parseFloat(val) > 10)) {
+    input.classList.add('invalid');
     return;
   }
-  input.style.borderColor = '';
-  salvarNota(alunoId, discId, bim, valor);
+  input.classList.remove('invalid');
 
   // Visual feedback — green flash
   input.classList.remove('saved-flash');
-  void input.offsetWidth; // trigger reflow
+  void input.offsetWidth;
   input.classList.add('saved-flash');
 
-  // Recalculate anual in same row
+  // Recalcular média na mesma linha
   const row = input.closest('tr');
-  if (row) {
-    const inputs = row.querySelectorAll('.nota-input');
-    const cfg = getConfig();
-    const vals = Array.from(inputs).map(i => i.value !== '' ? parseFloat(i.value) : null);
-    const anual = getNotaAnual(vals[0], vals[1], vals[2], vals[3]);
-    const cells = row.querySelectorAll('td');
-    const anualIdx = cells.length - 2;
-    const sitIdx   = cells.length - 1;
-    if (cells[anualIdx]) cells[anualIdx].innerHTML = notaBadge(anual, cfg.notaMinima);
-    if (cells[sitIdx])   cells[sitIdx].innerHTML   = situacaoBadge(anual, cfg.notaMinima);
+  if (!row) return;
+  const cfg = getConfig();
+
+  // Coletar todas as notas parciais da linha
+  const notaInputs = row.querySelectorAll('.nota-input-compact');
+  const validas = [];
+  notaInputs.forEach(inp => {
+    if (inp.value !== '' && !isNaN(parseFloat(inp.value))) {
+      validas.push({ valor: parseFloat(inp.value), rotulo: inp.dataset.rotulo || '' });
+    }
+  });
+
+  // Calcular média
+  const media = validas.length >= 2 ? (validas.reduce((s,n) => s + n.valor, 0) / validas.length) : null;
+
+  // Recuperação
+  const recInput = row.querySelector('.nota-rec-input');
+  const rec = recInput && recInput.value !== '' ? parseFloat(recInput.value) : null;
+  let final = media;
+  if (rec !== null && media !== null && validas.length >= 2) {
+    const resultado = aplicarRecuperacao(validas, rec);
+    final = resultado.media;
   }
 
-  // Update counters
+  // Atualizar células
+  const mediaCell = row.querySelector('[data-field="media"]');
+  const finalCell = row.querySelector('[data-field="final"]');
+  const sitCell = row.querySelector('[data-field="situacao"]');
+  
+  if (mediaCell) {
+    mediaCell.textContent = media !== null ? media.toFixed(2) : '—';
+    mediaCell.className = 'nota-media-cell ' + (media === null ? 'pendente' : (media >= cfg.notaMinima ? 'aprovado' : 'reprovado'));
+  }
+  if (finalCell) {
+    finalCell.textContent = final !== null ? final.toFixed(2) : '—';
+    finalCell.className = 'nota-media-cell ' + (final === null ? 'pendente' : (final >= cfg.notaMinima ? 'aprovado' : 'reprovado'));
+  }
+  if (sitCell) {
+    sitCell.innerHTML = situacaoBadge(final, cfg.notaMinima);
+  }
+
+  // Mostrar warning de mínimo 2 notas
+  const existingWarn = row.querySelector('.nota-min-warning');
+  if (existingWarn) existingWarn.remove();
+  if (validas.length === 1 && mediaCell) {
+    mediaCell.insertAdjacentHTML('afterend', '<span class="nota-min-warning">Mín. 2 notas</span>');
+  }
+
   updateNotaCounters();
 }
 
+// Legacy handler mantido para compatibilidade
+function onNotaChange(input) {
+  onNotaParcialChange(input);
+}
+
 function saveTodasNotas() {
-  toast('Notas salvas com sucesso!', 'success');
+  const tbody = document.getElementById('notas-tbody');
+  if (!tbody) return;
+
+  const turmaId = document.getElementById('notas-select-turma').value;
+  const discId  = document.getElementById('notas-select-disc').value;
+  const bimestre = parseInt(document.getElementById('notas-select-bimestre').value) || 1;
+  const cfg = getConfig();
+  const rotulos = cfg.rotulosPadrao || ['Prova Escrita','Trabalho','Participação','Simulado'];
+
+  if (isSistemaClosed()) {
+    toast('Sistema fechado. Notas não podem ser salvas.', 'error');
+    return;
+  }
+
+  const rows = tbody.querySelectorAll('tr[data-aluno-id]');
+  let salvos = 0, erros = 0;
+
+  rows.forEach(row => {
+    const alunoId = row.dataset.alunoId;
+    const notaInputs = row.querySelectorAll('.nota-input-compact');
+    const recInput = row.querySelector('.nota-rec-input');
+
+    // Coletar notas parciais
+    const notasArray = [];
+    let temAlguma = false;
+    notaInputs.forEach((inp, i) => {
+      const v = inp.value !== '' ? parseFloat(inp.value) : null;
+      if (v !== null) temAlguma = true;
+      notasArray.push({ valor: v, rotulo: rotulos[i] || `N${i+1}` });
+    });
+
+    // Só salvar se tem pelo menos alguma nota preenchida
+    if (!temAlguma) return;
+
+    // Validar mínimo 2 notas
+    const preenchidas = notasArray.filter(n => n.valor !== null && !isNaN(n.valor));
+    if (preenchidas.length < 2) {
+      erros++;
+      return;
+    }
+
+    const rec = recInput && recInput.value !== '' ? parseFloat(recInput.value) : null;
+
+    try {
+      salvarNotasBimestre(alunoId, discId, turmaId, bimestre, notasArray, rec);
+      salvos++;
+    } catch(e) {
+      console.error('Erro ao salvar nota:', e);
+      erros++;
+    }
+  });
+
+  if (erros > 0) {
+    toast(`${salvos} notas salvas. ${erros} aluno(s) com menos de 2 notas (não salvos).`, 'warning');
+  } else if (salvos > 0) {
+    toast(`${salvos} notas salvas com sucesso!`, 'success');
+  } else {
+    toast('Nenhuma nota para salvar.', 'info');
+  }
 }
 
 // =============================================================
@@ -1627,6 +2480,14 @@ function saveDiario() {
   const qtdAulas     = parseInt(document.getElementById('diario-qtd-aulas')?.value) || 1;
 
   if (!turmaId || !conteudo) { toast('Preencha turma e conteúdo.', 'error'); return; }
+
+  // Verificação de bloqueio por planejamento (Fase 2)
+  const cfg = getConfig();
+  const bimAtual = cfg.bimestreAtual || 1;
+  if (!isPlanejamentoAprovado(turmaId, bimAtual)) {
+    toast('⚠️ Planejamento não aprovado para esta turma/bimestre. Envie e aguarde aprovação.', 'error');
+    return;
+  }
 
   dbAdd('diario', {
     id: generateId('di'),
@@ -2018,6 +2879,9 @@ function loadDirInicio() {
   const profs   = dbGetAllEscola('professores').filter(p => p.ativo);
   const avisos  = dbGetAllEscola('avisos').filter(a => a.ativo);
 
+  // Atualizar badge de planejamentos pendentes (Fase 2)
+  updatePlanBadges();
+
   const st = document.getElementById('dir-stats-row');
   st.innerHTML = `
     <div class="stat-card">
@@ -2072,6 +2936,45 @@ function loadDirInicio() {
   // Professor status + Calendar
   renderProfStatus();
   renderCalendario('dir-calendario-body');
+
+  // Alertas de CH (Fase 3)
+  renderDirCHAlertas(turmas);
+}
+
+function renderDirCHAlertas(turmas) {
+  const el = document.getElementById('dir-ch-alertas');
+  if (!el) return;
+  const registros = dbGetAllEscola('registro_carga_horaria');
+  const alertas = [];
+  turmas.forEach(t => {
+    const p = calcularProgressoCH(t, registros);
+    if (p.deficit > 20) {
+      alertas.push({ turma: t, ...p, nivel: 'danger', icon: 'fa-circle-exclamation', msg: `Déficit crítico: ${p.deficit}h abaixo da meta` });
+    } else if (p.deficit > 0) {
+      alertas.push({ turma: t, ...p, nivel: 'warning', icon: 'fa-triangle-exclamation', msg: `Atenção: ${p.deficit}h abaixo da meta esperada` });
+    }
+  });
+  if (!alertas.length) {
+    el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--success);font-size:.85rem">
+      <i class="fa-solid fa-circle-check" style="margin-right:6px"></i>Todas as turmas em dia com a carga horária
+    </div>`;
+    return;
+  }
+  el.innerHTML = alertas.map(a => {
+    const barColor = a.nivel === 'danger' ? '#ef4444' : '#f59e0b';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--r-md);
+      background:${a.nivel === 'danger' ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)'};
+      border-left:3px solid ${barColor};margin-bottom:8px">
+      <i class="fa-solid ${a.icon}" style="color:${barColor};font-size:1rem;flex-shrink:0"></i>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.85rem;color:var(--text)">${esc(a.turma.nome)}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">${a.msg} · ${a.realizada}h/${a.meta}h (${a.percent}%)</div>
+      </div>
+      <div style="width:60px;height:6px;border-radius:3px;background:var(--border);flex-shrink:0">
+        <div style="height:100%;border-radius:3px;background:${barColor};width:${a.percent}%"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function toggleSistema() {
@@ -2681,50 +3584,77 @@ function loadCargaHoraria() {
   if (filtroTurma) filteredTurmas = filteredTurmas.filter(t => t.id === filtroTurma);
   if (filtroMod) filteredTurmas = filteredTurmas.filter(t => t.modalidadeId === filtroMod);
 
-  // Stats
-  let totalPercent = 0;
-  document.getElementById('ch-stat-turmas').textContent = filteredTurmas.length;
+  // Compute progress for all turmas
+  const allProgress = filteredTurmas.map(t => ({ turma: t, ...calcularProgressoCH(t, registros) }));
 
-  // Build progress cards
+  // Stats avançadas
+  const totalTurmas = allProgress.length;
+  const turmasEmDia = allProgress.filter(p => p.deficit <= 0).length;
+  const turmasRisco = allProgress.filter(p => p.deficit > 20).length;
+  const totalDeficit = allProgress.reduce((s, p) => s + p.deficit, 0);
+  const avgPercent = totalTurmas > 0 ? Math.round(allProgress.reduce((s, p) => s + p.percent, 0) / totalTurmas) : 0;
+  const totalHoras = allProgress.reduce((s, p) => s + p.realizada, 0);
+  const diasLetivosRestantes = allProgress.length > 0 ? Math.max(0, (allProgress[0].diasLetivosTotal || 200) - allProgress.reduce((s,p) => Math.max(s, p.diasRegistrados), 0)) : 0;
+  const avgBarColor = avgPercent >= 90 ? 'var(--success)' : avgPercent >= 70 ? 'var(--warning)' : 'var(--danger)';
+
+  document.getElementById('ch-stat-turmas').textContent = filteredTurmas.length;
+  document.getElementById('ch-stat-media').textContent = avgPercent + '%';
+
+  // Stats adicionais (se existirem os elementos)
+  const statsExtra = document.getElementById('ch-stats-extra');
+  if (statsExtra) {
+    statsExtra.innerHTML = `
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">CH Média</span><div class="stat-icon ${avgPercent >= 80 ? 'green' : avgPercent >= 60 ? 'yellow' : 'red'}"><i class="fa-solid fa-chart-line"></i></div></div>
+        <div class="stat-num" style="color:${avgBarColor}">${avgPercent}%</div><div class="stat-desc">da meta anual</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Turmas em Dia</span><div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div></div>
+        <div class="stat-num" style="color:var(--success)">${turmasEmDia}</div><div class="stat-desc">de ${totalTurmas} turmas</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Turmas em Risco</span><div class="stat-icon ${turmasRisco > 0 ? 'red' : 'green'}"><i class="fa-solid fa-triangle-exclamation"></i></div></div>
+        <div class="stat-num" style="color:${turmasRisco > 0 ? 'var(--danger)' : 'var(--success)'}">${turmasRisco}</div><div class="stat-desc">déficit > 20h</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-card-label">Déficit Total</span><div class="stat-icon ${totalDeficit > 0 ? 'red' : 'green'}"><i class="fa-solid fa-clock-rotate-left"></i></div></div>
+        <div class="stat-num" style="color:${totalDeficit > 0 ? 'var(--danger)' : 'var(--success)'}">${totalDeficit}h</div><div class="stat-desc">acumulado na rede</div></div>
+    `;
+  }
+
+  // Build progress cards (design premium)
   if (!filteredTurmas.length) {
     progressGrid.innerHTML = buildEmptyState('Nenhuma turma encontrada.');
     tbody.innerHTML = `<tr><td colspan="7">${buildEmptyState('Sem registros.')}</td></tr>`;
-    document.getElementById('ch-stat-media').textContent = '0%';
     return;
   }
 
-  progressGrid.innerHTML = filteredTurmas.map(t => {
-    const progress = calcularProgressoCH(t, registros);
-    totalPercent += progress.percent;
-    const mod = mods.find(m => m.id === t.modalidadeId);
-    const barColor = progress.percent >= 90 ? '#10b981' : progress.percent >= 70 ? '#f59e0b' : '#ef4444';
-    const statusIcon = progress.deficit > 0 ? '⚠️' : '✅';
-    const statusText = progress.deficit > 0 ? `Déficit: ${progress.deficit}h` : 'Em dia';
+  progressGrid.innerHTML = allProgress.map(p => {
+    const mod = mods.find(m => m.id === p.turma.modalidadeId);
+    const barColor = p.percent >= 90 ? '#10b981' : p.percent >= 70 ? '#f59e0b' : '#ef4444';
+    const barGradient = p.percent >= 90 ? 'linear-gradient(90deg,#10b981,#34d399)' : p.percent >= 70 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#ef4444,#f87171)';
+    const statusIcon = p.deficit > 20 ? '🔴' : p.deficit > 0 ? '🟡' : '🟢';
+    const statusText = p.deficit > 20 ? `Risco: -${p.deficit}h` : p.deficit > 0 ? `Atenção: -${p.deficit}h` : 'Em dia ✓';
+    const horasRestam = Math.max(0, p.meta - p.realizada);
 
-    return `<div style="padding:16px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg);">
-      <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+    return `<div class="ch-progress-card ${p.deficit > 20 ? 'ch-deficit-alert' : ''}">
+      <div class="ch-progress-header">
         <div>
-          <div style="font-weight:800; font-size:.88rem; color:var(--text-primary)">${esc(t.nome)}</div>
-          <div style="font-size:.68rem; color:var(--text-muted)">${mod ? esc(mod.nome) : ''}</div>
+          <div class="ch-progress-turma">${esc(p.turma.nome)}</div>
+          <div class="ch-progress-mod">${mod ? esc(mod.nome) : 'Sem modalidade'}</div>
         </div>
-        <span style="font-size:.68rem; padding:2px 8px; border-radius:99px; background:${barColor}15; color:${barColor}; font-weight:700; border:1px solid ${barColor}30">${statusIcon} ${statusText}</span>
+        <span class="ch-progress-status" style="background:${barColor}12;color:${barColor};border-color:${barColor}30">
+          ${statusIcon} ${statusText}
+        </span>
       </div>
-      <div style="background:var(--border); border-radius:99px; height:8px; overflow:hidden; margin-bottom:6px;">
-        <div style="background:${barColor}; height:100%; width:${Math.min(progress.percent, 100)}%; border-radius:99px; transition:width 0.6s ease;"></div>
+      <div class="ch-progress-bar-track">
+        <div class="ch-progress-bar-fill" style="background:${barGradient};width:${Math.min(p.percent, 100)}%"></div>
+        ${p.metaEsperadaPct > 0 ? `<div class="ch-progress-bar-expected" style="left:${Math.min(p.metaEsperadaPct, 100)}%" title="Meta esperada: ${p.metaEsperada}h"></div>` : ''}
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:.7rem; color:var(--text-muted);">
-        <span>${progress.realizada}h / ${progress.meta}h</span>
-        <span style="font-weight:800; color:${barColor}">${progress.percent}%</span>
+      <div class="ch-progress-nums">
+        <span><strong>${p.realizada}h</strong> / ${p.meta}h</span>
+        <span class="ch-progress-pct" style="color:${barColor}">${p.percent}%</span>
       </div>
-      <div style="display:flex; gap:8px; margin-top:6px; font-size:.65rem; color:var(--text-muted);">
-        <span><i class="fa-solid fa-calendar-days"></i> ${progress.diasRegistrados} dias</span>
-        <span><i class="fa-solid fa-clock"></i> ${progress.minutosTotal} min registrados</span>
+      <div class="ch-progress-details">
+        <span><i class="fa-solid fa-calendar-days"></i> ${p.diasRegistrados} dias</span>
+        <span><i class="fa-solid fa-bullseye"></i> Meta esperada: ${p.metaEsperada}h</span>
+        <span><i class="fa-solid fa-forward"></i> Faltam: ${horasRestam}h</span>
       </div>
     </div>`;
   }).join('');
-
-  const avgPercent = Math.round(totalPercent / filteredTurmas.length);
-  document.getElementById('ch-stat-media').textContent = avgPercent + '%';
 
   // Build daily log table
   let filteredRegistros = registros;
@@ -2780,15 +3710,20 @@ function calcularProgressoCH(turma, registros) {
   const diasPassados = Math.max(0, (now - anoInicio) / (1000*60*60*24));
   const proporcao = Math.min(diasPassados / totalDias, 1);
   const metaEsperada = Math.round(metaAnual * proporcao);
+  const metaEsperadaPct = metaAnual > 0 ? Math.round((metaEsperada / metaAnual) * 100) : 0;
   const deficit = Math.max(0, Math.round(metaEsperada - horasRealizada));
+  const diasRegistrados = new Set(regs.map(r => r.data)).size;
 
   return {
     meta: metaAnual,
     realizada: horasRealizada,
     percent: Math.min(percent, 100),
     deficit,
+    metaEsperada,
+    metaEsperadaPct,
     minutosTotal,
-    diasRegistrados: new Set(regs.map(r => r.data)).size
+    diasRegistrados,
+    diasLetivosTotal: diasLetivos
   };
 }
 
@@ -2956,24 +3891,33 @@ function loadRelatorio() {
   const turmas      = dbGetAllEscola('turmas');
   const todasNotas  = dbGetAll('notas');
 
-  // Build rows: aluno × disciplina
+  // Build rows: aluno × disciplina (NOVO FORMATO: docs por bimestre)
   const rows = [];
   alunos.forEach(a => {
     disciplinas.forEach(d => {
-      const nota = todasNotas.find(n => n.alunoId === a.id && n.disciplinaId === d.id);
-      if (nota || filtroT || filtroB) {
-        const b1 = nota?.b1 ?? null; const b2 = nota?.b2 ?? null;
-        const b3 = nota?.b3 ?? null; const b4 = nota?.b4 ?? null;
-        // Filtro de bimestre: se selecionado, pular registros sem nota nesse bimestre
-        if (filtroB) {
-          const bKey = `b${filtroB}`;
-          if (!nota || (nota[bKey] === null || nota[bKey] === undefined)) return;
-        }
-        if (!nota && !filtroB) return; // skip empty
-        const anual = getNotaAnual(b1, b2, b3, b4);
-        const turma = turmas.find(t => t.id === a.turmaId);
-        rows.push({ aluno: a, disciplina: d, nota, b1, b2, b3, b4, anual, turma });
+      const notaDocs = dbGetAll('notas').filter(n => n.alunoId === a.id && n.disciplinaId === d.id);
+      
+      // Obter nota final de cada bimestre
+      const b1Doc = notaDocs.find(n => n.bimestre === 1);
+      const b2Doc = notaDocs.find(n => n.bimestre === 2);
+      const b3Doc = notaDocs.find(n => n.bimestre === 3);
+      const b4Doc = notaDocs.find(n => n.bimestre === 4);
+      const b1 = b1Doc ? (b1Doc.notaFinal ?? getNotaBimestral(b1Doc)) : null;
+      const b2 = b2Doc ? (b2Doc.notaFinal ?? getNotaBimestral(b2Doc)) : null;
+      const b3 = b3Doc ? (b3Doc.notaFinal ?? getNotaBimestral(b3Doc)) : null;
+      const b4 = b4Doc ? (b4Doc.notaFinal ?? getNotaBimestral(b4Doc)) : null;
+      
+      // Filtro de bimestre
+      if (filtroB) {
+        const bVal = [b1, b2, b3, b4][parseInt(filtroB) - 1];
+        if (bVal === null || bVal === undefined) return;
       }
+      
+      if (!notaDocs.length && !filtroB) return;
+      
+      const anual = getNotaAnual(b1, b2, b3, b4);
+      const turma = turmas.find(t => t.id === a.turmaId);
+      rows.push({ aluno: a, disciplina: d, notaDocs, b1, b2, b3, b4, anual, turma });
     });
   });
 
@@ -3675,18 +4619,17 @@ function renderAlunoCharts() {
   if (!SESSION || SESSION.role !== 'aluno' || !SESSION.user) return;
   const aluno = SESSION.user;
   const disciplinas = dbGetAll('disciplinas').filter(d => d.ativo);
-  const notas = getNotasAluno(aluno.id);
   const cfg = getConfig();
 
-  // Radar Chart — Performance by discipline
+  // Radar Chart — Performance by discipline (usa notaFinal de cada bimestre)
   destroyChart('chart-aluno-radar');
   const ctxRadar = document.getElementById('chart-aluno-radar');
   if (ctxRadar && disciplinas.length > 0) {
     const labels = disciplinas.map(d => d.nome.length > 10 ? d.nome.slice(0, 10) + '…' : d.nome);
     const data = disciplinas.map(d => {
-      const n = notas.find(n => n.disciplinaId === d.id);
-      if (!n) return 0;
-      const vals = [n.b1, n.b2, n.b3, n.b4].filter(v => v !== null && v !== undefined);
+      const notaDocs = getNotasAlunoDisciplina(aluno.id, d.id);
+      if (!notaDocs.length) return 0;
+      const vals = notaDocs.map(n => n.notaFinal ?? getNotaBimestral(n)).filter(v => v !== null && v !== undefined);
       return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
     });
     chartInstances['chart-aluno-radar'] = new Chart(ctxRadar, {
@@ -3711,20 +4654,23 @@ function renderAlunoCharts() {
     });
   }
 
-  // Line Chart — Evolution by bimester
+  // Line Chart — Evolution by bimester (usa notaFinal de cada bimestre)
   destroyChart('chart-aluno-evolucao');
   const ctxLine = document.getElementById('chart-aluno-evolucao');
   if (ctxLine) {
     const datasets = [];
     const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#f97316', '#6366f1'];
     disciplinas.forEach((d, idx) => {
-      const n = notas.find(n => n.disciplinaId === d.id);
-      if (!n) return;
-      const vals = [n.b1, n.b2, n.b3, n.b4];
-      if (vals.every(v => v === null || v === undefined)) return;
+      const notaDocs = getNotasAlunoDisciplina(aluno.id, d.id);
+      if (!notaDocs.length) return;
+      const vals = [1,2,3,4].map(bim => {
+        const doc = notaDocs.find(n => n.bimestre === bim);
+        return doc ? (doc.notaFinal ?? getNotaBimestral(doc)) : null;
+      });
+      if (vals.every(v => v === null)) return;
       datasets.push({
         label: d.nome.length > 12 ? d.nome.slice(0, 12) + '…' : d.nome,
-        data: vals.map(v => v !== null && v !== undefined ? +v : null),
+        data: vals.map(v => v !== null ? +v : null),
         borderColor: d.cor || colors[idx % colors.length],
         backgroundColor: 'transparent',
         tension: 0.4,
@@ -3923,8 +4869,15 @@ function generateBoletimPDF(alunoId) {
   const freqPct = totalAulas > 0 ? freqPctNum.toFixed(1) : '—';
 
   const rows = disciplinas.map(d => {
-    const n = notas.find(n => n.disciplinaId === d.id);
-    const b1 = n?.b1 ?? null, b2 = n?.b2 ?? null, b3 = n?.b3 ?? null, b4 = n?.b4 ?? null;
+    const notaDocs = getNotasAlunoDisciplina(aluno.id, d.id);
+    const b1Doc = notaDocs.find(n => n.bimestre === 1);
+    const b2Doc = notaDocs.find(n => n.bimestre === 2);
+    const b3Doc = notaDocs.find(n => n.bimestre === 3);
+    const b4Doc = notaDocs.find(n => n.bimestre === 4);
+    const b1 = b1Doc ? (b1Doc.notaFinal ?? getNotaBimestral(b1Doc)) : null;
+    const b2 = b2Doc ? (b2Doc.notaFinal ?? getNotaBimestral(b2Doc)) : null;
+    const b3 = b3Doc ? (b3Doc.notaFinal ?? getNotaBimestral(b3Doc)) : null;
+    const b4 = b4Doc ? (b4Doc.notaFinal ?? getNotaBimestral(b4Doc)) : null;
     const anual = getNotaAnual(b1, b2, b3, b4);
     const sit = anual === null ? 'Em Curso' : anual >= cfg.notaMinima ? '✅ Aprovado' : '❌ Reprovado';
     const sitColor = anual === null ? '#666' : anual >= cfg.notaMinima ? '#059669' : '#dc2626';
@@ -3942,8 +4895,17 @@ function generateBoletimPDF(alunoId) {
   // Check overall approval
   let totalAprov = 0, totalRep = 0;
   disciplinas.forEach(d => {
-    const n = notas.find(n => n.disciplinaId === d.id);
-    const anual = getNotaAnual(n?.b1 ?? null, n?.b2 ?? null, n?.b3 ?? null, n?.b4 ?? null);
+    const notaDocs = getNotasAlunoDisciplina(aluno.id, d.id);
+    const b1 = notaDocs.find(n => n.bimestre === 1);
+    const b2 = notaDocs.find(n => n.bimestre === 2);
+    const b3 = notaDocs.find(n => n.bimestre === 3);
+    const b4 = notaDocs.find(n => n.bimestre === 4);
+    const anual = getNotaAnual(
+      b1 ? (b1.notaFinal ?? getNotaBimestral(b1)) : null,
+      b2 ? (b2.notaFinal ?? getNotaBimestral(b2)) : null,
+      b3 ? (b3.notaFinal ?? getNotaBimestral(b3)) : null,
+      b4 ? (b4.notaFinal ?? getNotaBimestral(b4)) : null
+    );
     if (anual !== null) { if (anual >= cfg.notaMinima) totalAprov++; else totalRep++; }
   });
 

@@ -802,6 +802,268 @@ ul,ol { list-style:none; }
   background:var(--accent); border-radius:0 3px 3px 0;
 }
 
+/* ── Sidebar Badge ────────────────────────────────────────── */
+.sidebar-badge {
+  margin-left:auto; min-width:20px; height:20px; padding:0 6px;
+  border-radius:var(--r-full); font-size:0.62rem; font-weight:800;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--danger); color:#fff;
+  animation:badgePop 0.3s ease;
+}
+
+/* ── Planejamento de Turma ─────────────────────────────────── */
+.plan-status-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 12px; border-radius:var(--r-full); font-size:0.72rem;
+  font-weight:700; white-space:nowrap;
+}
+.plan-status-badge.rascunho     { background:var(--bg); color:var(--text-muted); border:1px solid var(--border); }
+.plan-status-badge.enviado      { background:var(--info-light); color:var(--secondary); border:1px solid rgba(37,99,235,0.2); }
+.plan-status-badge.aprovado     { background:var(--success-light); color:var(--success); border:1px solid rgba(5,150,105,0.2); }
+.plan-status-badge.revisao      { background:var(--warning-light); color:#92400e; border:1px solid rgba(217,119,6,0.2); }
+
+.plan-card {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--r-xl); overflow:hidden; margin-bottom:16px;
+  transition:var(--t-normal); box-shadow:var(--shadow-card);
+}
+.plan-card:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); }
+.plan-card.enviado    { border-left:4px solid var(--secondary); }
+.plan-card.aprovado   { border-left:4px solid var(--success); }
+.plan-card.rascunho   { border-left:4px solid var(--text-muted); }
+.plan-card.revisao    { border-left:4px solid var(--warning); }
+
+.plan-card-header {
+  padding:18px 22px; display:flex; align-items:flex-start;
+  justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+.plan-card-title { font-weight:800; font-size:0.95rem; color:var(--text); }
+.plan-card-sub { font-size:0.78rem; color:var(--text-muted); margin-top:3px; }
+
+.plan-card-body { padding:0 22px 18px; }
+.plan-card-section {
+  margin-bottom:14px;
+}
+.plan-card-section-title {
+  font-weight:700; font-size:0.75rem; color:var(--text-secondary);
+  text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;
+  display:flex; align-items:center; gap:6px;
+}
+.plan-card-section-title i { font-size:0.7rem; color:var(--secondary); }
+.plan-card-section-text {
+  font-size:0.875rem; color:var(--text); line-height:1.65;
+  white-space:pre-line; background:var(--surface-2);
+  padding:10px 14px; border-radius:var(--r-md); border:1px solid var(--border);
+}
+
+.plan-card-footer {
+  padding:14px 22px; border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap; background:var(--surface-2);
+}
+.plan-card-meta { font-size:0.72rem; color:var(--text-muted); }
+.plan-card-meta i { margin-right:4px; }
+
+/* Feedback do diretor */
+.plan-feedback-box {
+  margin:0 22px 18px; padding:14px 16px;
+  border-radius:var(--r-md); border-left:3px solid;
+  font-size:0.85rem; line-height:1.55;
+}
+.plan-feedback-box.aprovado {
+  background:rgba(5,150,105,0.08); border-color:var(--success); color:#065f46;
+}
+.plan-feedback-box.revisao {
+  background:rgba(217,119,6,0.08); border-color:var(--warning); color:#78350f;
+}
+.plan-feedback-box-header {
+  font-weight:800; font-size:0.78rem; margin-bottom:6px;
+  display:flex; align-items:center; gap:6px;
+}
+
+/* Banner de bloqueio */
+.plan-block-banner {
+  display:flex; align-items:center; gap:14px; padding:16px 20px;
+  background:linear-gradient(135deg,#fef3c7,#fde68a);
+  border:1.5px solid rgba(217,119,6,0.3);
+  border-radius:var(--r-lg); margin-bottom:16px;
+  color:#78350f;
+}
+.plan-block-banner i { font-size:1.3rem; flex-shrink:0; }
+.plan-block-banner-text { font-size:0.875rem; font-weight:600; }
+.plan-block-banner-sub { font-size:0.78rem; font-weight:400; margin-top:3px; }
+
+/* Diretor: Card de aprovação expandido */
+.plan-review-actions {
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;
+}
+
+/* ── Carga Horária — Progress Cards (Fase 3) ──────────────── */
+.ch-progress-card {
+  padding:18px; border:1.5px solid var(--border);
+  border-radius:var(--r-lg); background:var(--surface);
+  transition:var(--t-normal); box-shadow:var(--shadow-card);
+  position:relative; overflow:hidden;
+}
+.ch-progress-card:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); }
+.ch-progress-card.ch-deficit-alert {
+  border-color:rgba(239,68,68,0.3);
+  background:linear-gradient(135deg, var(--surface) 90%, rgba(239,68,68,0.04) 100%);
+}
+.ch-progress-card.ch-deficit-alert::before {
+  content:''; position:absolute; top:0; left:0; width:4px; height:100%;
+  background:var(--danger); border-radius:var(--r-lg) 0 0 var(--r-lg);
+}
+
+.ch-progress-header {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:8px; margin-bottom:12px;
+}
+.ch-progress-turma { font-weight:800; font-size:0.9rem; color:var(--text); }
+.ch-progress-mod { font-size:0.68rem; color:var(--text-muted); margin-top:2px; }
+.ch-progress-status {
+  font-size:0.68rem; padding:3px 10px; border-radius:var(--r-full);
+  font-weight:700; border:1px solid; white-space:nowrap;
+  flex-shrink:0;
+}
+
+.ch-progress-bar-track {
+  background:var(--border); border-radius:var(--r-full);
+  height:10px; overflow:visible; margin-bottom:8px;
+  position:relative;
+}
+.ch-progress-bar-fill {
+  height:100%; border-radius:var(--r-full);
+  transition:width 0.8s cubic-bezier(0.4,0,0.2,1);
+  position:relative;
+}
+.ch-progress-bar-fill::after {
+  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
+  background:linear-gradient(90deg, rgba(255,255,255,0.25) 0%, transparent 50%, rgba(255,255,255,0.25) 100%);
+  border-radius:inherit;
+  animation:chShimmer 2s ease-in-out infinite;
+}
+@keyframes chShimmer {
+  0%,100% { opacity:0.3; }
+  50% { opacity:0.7; }
+}
+
+/* Marcador de meta esperada */
+.ch-progress-bar-expected {
+  position:absolute; top:-3px; width:2px; height:16px;
+  background:#6366f1; border-radius:1px;
+  z-index:2;
+}
+.ch-progress-bar-expected::before {
+  content:'▼'; position:absolute; top:-13px; left:-5px;
+  font-size:9px; color:#6366f1;
+}
+
+.ch-progress-nums {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:0.78rem; color:var(--text-muted);
+}
+.ch-progress-pct { font-weight:900; font-size:0.95rem; }
+
+.ch-progress-details {
+  display:flex; gap:12px; margin-top:8px;
+  font-size:0.68rem; color:var(--text-muted); flex-wrap:wrap;
+}
+.ch-progress-details i { margin-right:3px; font-size:0.62rem; }
+
+/* ── Audit Log de Notas (Fase 4) ──────────────────────────── */
+.audit-date-group { margin-bottom:24px; }
+.audit-date-label {
+  font-weight:800; font-size:0.82rem; color:var(--text-secondary);
+  padding:8px 0; border-bottom:2px solid var(--border); margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+.audit-date-label i { color:var(--secondary); font-size:0.75rem; }
+.audit-date-count {
+  background:var(--secondary); color:#fff; font-size:0.62rem;
+  min-width:18px; height:18px; border-radius:var(--r-full);
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight:800; padding:0 5px;
+}
+
+.audit-entry {
+  display:flex; gap:14px; padding:14px 0;
+  border-bottom:1px solid var(--border);
+  transition:background 0.2s;
+}
+.audit-entry:hover { background:var(--surface-2); border-radius:var(--r-md); padding:14px 12px; margin:0 -12px; }
+.audit-entry:last-child { border-bottom:none; }
+
+.audit-entry-icon {
+  width:36px; height:36px; border-radius:var(--r-md);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.85rem; flex-shrink:0;
+}
+.audit-entry-content { flex:1; min-width:0; }
+
+.audit-entry-header {
+  display:flex; justify-content:space-between; align-items:center;
+  gap:8px; margin-bottom:4px;
+}
+.audit-entry-meta {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  font-size:0.75rem;
+}
+.audit-entry-time { color:var(--text-muted); font-weight:600; }
+.audit-entry-tipo { font-weight:800; text-transform:uppercase; font-size:0.65rem; letter-spacing:0.05em; }
+.audit-entry-prof { color:var(--text-secondary); }
+.audit-entry-prof i { margin-right:3px; font-size:0.65rem; }
+
+.audit-entry-desc {
+  font-size:0.85rem; color:var(--text); line-height:1.5;
+  margin-bottom:6px;
+}
+
+.audit-entry-tags {
+  display:flex; gap:6px; flex-wrap:wrap;
+}
+.audit-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:var(--r-full);
+  background:var(--surface-2); color:var(--text-muted);
+  font-size:0.68rem; font-weight:600;
+  border:1px solid var(--border);
+}
+.audit-tag i { font-size:0.58rem; }
+
+/* Diff comparison */
+.audit-diff-row {
+  margin-top:10px; padding:12px; border-radius:var(--r-md);
+  background:var(--bg); border:1px solid var(--border);
+  animation:slideDown 0.25s ease;
+}
+@keyframes slideDown {
+  from { opacity:0; max-height:0; }
+  to { opacity:1; max-height:500px; }
+}
+.audit-diff-grid {
+  display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;
+}
+.audit-diff-item {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:4px 10px; border-radius:var(--r-md);
+  background:var(--surface); border:1px solid var(--border);
+  font-size:0.78rem;
+}
+.audit-diff-item.changed { border-color:rgba(217,119,6,0.3); background:rgba(217,119,6,0.04); }
+.audit-diff-label { font-weight:800; font-size:0.68rem; color:var(--text-muted); }
+.audit-diff-old {
+  text-decoration:line-through; color:var(--danger); opacity:0.7;
+  font-size:0.78rem;
+}
+.audit-diff-new { font-weight:700; font-size:0.82rem; color:var(--text); }
+.audit-diff-new.highlight { color:var(--success); }
+.audit-diff-summary {
+  display:flex; gap:16px; font-size:0.78rem; color:var(--text-secondary);
+  padding-top:8px; border-top:1px solid var(--border);
+}
+
+
 /* System status */
 .system-status-bar { padding:10px 12px; border-top:1px solid var(--sidebar-border); flex-shrink:0; }
 .system-status-inner {
@@ -816,14 +1078,19 @@ ul,ol { list-style:none; }
 @keyframes pulseDot { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(110,231,183,0.5); } 50% { opacity:0.6; box-shadow:0 0 0 4px rgba(110,231,183,0); } }
 
 /* Sidebar footer */
-.sidebar-footer { padding:8px 8px 12px; border-top:1px solid var(--sidebar-border); flex-shrink:0; }
-.sidebar-logout {
-  display:flex; align-items:center; gap:10px; padding:10px 12px;
-  border-radius:var(--r-md); color:rgba(239,68,68,0.65); font-weight:600;
-  font-size:0.84rem; cursor:pointer; transition:var(--t-fast);
-  border:none; background:transparent; width:100%; font-family:inherit;
+.sidebar-footer {
+  padding:10px 10px 14px; border-top:1px solid var(--sidebar-border);
+  flex-shrink:0; margin-top:auto; display:flex; flex-direction:column; gap:3px;
 }
-.sidebar-logout:hover { background:rgba(239,68,68,0.1); color:#fca5a5; }
+.sidebar-logout {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-radius:var(--r-md); color:#fca5a5; font-weight:700;
+  font-size:0.84rem; cursor:pointer; transition:var(--t-fast);
+  border:1px solid rgba(239,68,68,0.12); background:rgba(239,68,68,0.06);
+  width:100%; font-family:inherit; margin-top:4px;
+}
+.sidebar-logout:hover { background:rgba(239,68,68,0.15); color:#f87171; border-color:rgba(239,68,68,0.25); }
+.sidebar-logout i { font-size:0.9rem; }
 .sidebar-site-link {
   display:flex; align-items:center; gap:10px; padding:10px 12px;
   border-radius:var(--r-md); color:rgba(255,255,255,0.3); font-weight:600;
@@ -1039,6 +1306,102 @@ ul,ol { list-style:none; }
 .nota-anual-badge.aprovado  { background:var(--success-light); color:var(--success); }
 .nota-anual-badge.reprovado { background:var(--danger-light);  color:var(--danger); }
 .nota-anual-badge.pendente  { background:var(--bg); color:var(--text-muted); }
+
+/* ── Notas Parciais (Sistema Bimestral Fracionado) ─────────── */
+.nota-input-compact {
+  width:56px; padding:5px 4px; border:1.5px solid var(--border);
+  border-radius:var(--r-sm); font-size:0.82rem; font-weight:700;
+  text-align:center; font-family:inherit; color:var(--text);
+  outline:none; transition:var(--t-fast); background:var(--surface);
+  -webkit-appearance:textfield;
+}
+.nota-input-compact:focus { border-color:var(--secondary); box-shadow:0 0 0 2px var(--info-light); }
+.nota-input-compact:disabled { background:var(--bg); color:var(--text-muted); cursor:not-allowed; opacity:.6; }
+.nota-input-compact.invalid { border-color:var(--danger); background:rgba(220,38,38,0.05); }
+
+.nota-media-cell {
+  font-weight:800; font-size:0.88rem; padding:4px 8px;
+  border-radius:var(--r-sm); display:inline-block; min-width:48px; text-align:center;
+}
+.nota-media-cell.aprovado { background:var(--success-light); color:var(--success); }
+.nota-media-cell.reprovado { background:var(--danger-light); color:var(--danger); }
+.nota-media-cell.pendente { background:var(--bg); color:var(--text-muted); }
+
+.nota-rec-input {
+  width:56px; padding:5px 4px; border:1.5px dashed var(--warning);
+  border-radius:var(--r-sm); font-size:0.82rem; font-weight:700;
+  text-align:center; font-family:inherit; color:var(--warning);
+  outline:none; transition:var(--t-fast); background:rgba(217,119,6,0.04);
+  -webkit-appearance:textfield;
+}
+.nota-rec-input:focus { border-color:var(--warning); box-shadow:0 0 0 2px var(--warning-light); }
+.nota-rec-input:disabled { opacity:.5; cursor:not-allowed; }
+
+.nota-min-warning {
+  font-size:0.65rem; color:var(--warning); font-weight:700;
+  display:block; margin-top:2px; text-align:center;
+}
+
+/* Popover de detalhes da nota bimestral (aluno) */
+.nota-detalhe-popover {
+  position:absolute; z-index:100; min-width:220px;
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--r-lg); box-shadow:var(--shadow-lg);
+  padding:14px 16px; animation:popoverIn 0.2s ease both;
+}
+@keyframes popoverIn {
+  from { opacity:0; transform:translateY(8px) scale(0.96); }
+  to   { opacity:1; transform:none; }
+}
+.nota-detalhe-popover::before {
+  content:''; position:absolute; top:-7px; left:50%; transform:translateX(-50%);
+  border-left:7px solid transparent; border-right:7px solid transparent;
+  border-bottom:7px solid var(--border);
+}
+.nota-detalhe-popover::after {
+  content:''; position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-bottom:6px solid var(--surface);
+}
+.nota-detalhe-title {
+  font-weight:800; font-size:0.8rem; color:var(--text);
+  margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+.nota-detalhe-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:3px 0; font-size:0.78rem;
+}
+.nota-detalhe-row .rotulo { color:var(--text-secondary); font-weight:600; }
+.nota-detalhe-row .valor { font-weight:800; }
+.nota-detalhe-row .valor.aprovado { color:var(--success); }
+.nota-detalhe-row .valor.reprovado { color:var(--danger); }
+.nota-detalhe-divider { border-top:1px dashed var(--border); margin:6px 0; }
+.nota-detalhe-rec {
+  background:var(--warning-light); border-radius:var(--r-sm);
+  padding:6px 8px; margin-top:6px; font-size:0.72rem; font-weight:700;
+  color:#92400e;
+}
+.nota-detalhe-total {
+  font-weight:900; font-size:0.9rem; margin-top:8px;
+  padding-top:8px; border-top:1px solid var(--border);
+  display:flex; justify-content:space-between;
+}
+
+/* Nota bimestral clicável (aluno) */
+.nota-bim-clickable {
+  cursor:pointer; position:relative; transition:var(--t-fast);
+  padding:4px 8px; border-radius:var(--r-sm);
+}
+.nota-bim-clickable:hover {
+  background:var(--info-light); transform:scale(1.05);
+}
+
+/* Save bar para notas */
+.notas-save-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; background:var(--surface);
+  border-top:1px solid var(--border); gap:12px; flex-wrap:wrap;
+}
 
 /* ── Bimestre header highlight ─────────────────────────────── */
 .bim-header-active {
